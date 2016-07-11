@@ -31,8 +31,8 @@ LTEBase::LTEBase(HardwareSerial& tp, HardwareSerial* dp) {
 // TODO: finish
 /** Selects frequency band that Telit uses to communicate.
  *
- *  @param  _band Frequency band used by Telit.
- *  @return bool  True on success.
+ *  @param  _band   Frequency band used by Telit.
+ *  @return bool    True on success.
  */
 bool LTEBase::init(uint16_t _band) {
   #ifdef DEBUG
@@ -44,6 +44,24 @@ bool LTEBase::init(uint16_t _band) {
   return true;
 }
 
+// TODO: finish
+/** Sends an AT command to the Telit module, and lets the user know
+ *  if there is a response.
+ *
+ *  @param  cmd   String containing AT command to send.
+ *  @return bool  True if there is a response from the module,
+ *                false otherwise.
+ */
+bool LTEBase::sendATCommand(const char* cmd) {
+  #ifdef DEBUG
+  debugPort->write("Sending AT Command: ");
+  debugPort->write(cmd);
+  debugPort->write(" ...\r");
+  #endif
 
+  // write it to the other serial port
+}
+
+bool LTEBase::receiveData(uint16_t dataSize, uint32_t timeout = 180000);
 
 #endif

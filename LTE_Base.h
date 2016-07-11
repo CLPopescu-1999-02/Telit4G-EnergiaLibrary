@@ -33,10 +33,12 @@ class LTEBase {
     virtual bool turnOff();
 
     // Telit communication
-    virtual void sendATCommand(const char*);
+    virtual bool sendATCommand(const char*);
     virtual bool receiveData(uint16_t dataSize, uint32_t timeout = 180000);
+    virtual char* getData() { return data; };
+    virtual char* getParsedData() { return parsedData; }
 
-    // Basic information about Telit module
+    // Basic commands for Telit module
     bool isRegistered();  /* Check registration status */
     const char* getSN();  /* Gets the serial number */
 

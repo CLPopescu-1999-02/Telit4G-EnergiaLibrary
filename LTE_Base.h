@@ -13,15 +13,15 @@
  */
 
 
-#ifndef LTE_LTEBASE_H_
-#define LTE_LTEBASE_H_
+#ifndef LTE_LTE_BASE_H_
+#define LTE_LTE_BASE_H_
 
 #include <stdlib.h>
 #include <string.h>
 
 #include <Energia.h>
 
-// Defines general interface for objects that communicate over LTE.
+
 class LTEBase {
   public:
     // Basic setup
@@ -34,18 +34,20 @@ class LTEBase {
 
     // Telit communication
     virtual bool sendATCommand(const char*);
-    virtual bool receiveData(uint16_t dataSize, uint32_t timeout = 180000);
+    virtual bool receiveData(uint32_t timeout = 180000,
+                             uint32_t baudDelay = 60);
     virtual char* getData() { return data; };
     virtual char* getParsedData() { return parsedData; }
 
     // Basic commands for Telit module
-    bool isRegistered();  /* Check registration status */
-    const char* getSN();  /* Gets the serial number */
+    virtual const char* printRegistration();  /* Prints serial numbers */
+    virtual bool isConnected();  /* Connection status */
 
   protected:
     HardwareSerial telitPort;  /* Telit serial interface */
     HardwareSerial* debugPort = NULL;  /* Pointer so it can default to null */
     char* data;  /* Response data from Telit */
+    uint16_t dataSize;  /* Size of response data from Telit */
     char* parsedData;  /* Parsed response data */
 };
 

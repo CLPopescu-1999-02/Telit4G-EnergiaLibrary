@@ -29,24 +29,39 @@ LTEBase::LTEBase(HardwareSerial& tp, HardwareSerial* dp) {
     debugPort = dp;
 }
 
-
-// TODO: finish
-/** Selects frequency band that Telit uses to communicate.
+// TODO: test
+/** Sets up initial settings, and selects frequency band that Telit
+ *  uses to communicate.
  *
- *  @param  _band   Frequency band used by Telit.
+ *  @param  lte_band   Frequency band used by Telit.
  *  @return bool    True on success.
  */
-bool LTEBase::init(uint16_t _band) {
+bool LTEBase::init(uint16_t lte_band) {
     #ifdef DEBUG
-    debugPort->write("Setting frequency band ...\r");
+    debugPort->write("Initializing ...\r");
     #endif
 
     //TODO: look up AT commands to set frequency bands
-    //sendATCommand("");
+
+    // Set no echo
+    if (!sendATCommand("ATE0", 500, 2000)) return false;
+
+    if (!getCommandOK("ATV1")) return false;  /* Verbose response */
+    if (!getCommandOK("AT+IPR=115200")) return false;  /* Baud rate */
+    if (!getCommandOK("AT+CMEE=2")) return false;  /* Verbose error reports */
+    if (!getCommandOK("AT&K0")) return false;  /* No flow control */
+
+    /* If you are using a 2G/3G capable device, you would change
+     * The arguments here to include your GSM and UMTS bands. For the Telit
+     * EVK4 (LE910SV-V2), _band can be 4 or 13. */
+    char* band = "";
+    int gsm_band = 0;
+    int umts_band = 0;
+    sprintf(band, "AT#BND=%d,%d,%d", gsm_band, umts_band, lte_band);
+    if (!getCommandOK(band)) return false;
 
     return true;
 }
-
 
 // TODO: test
 /** Sends an AT command to the Telit module, and lets the user know
@@ -56,7 +71,8 @@ bool LTEBase::init(uint16_t _band) {
  *  @return bool  True if there is a response from the module,
  *                false otherwise.
  */
-bool LTEBase::sendATCommand(const char* cmd) {
+bool LTEBase::sendATCommand(const char* cmd, uint32_t timeout,
+                            uint32_t baudDelay) {
     #ifdef DEBUG
     debugPort->write("Sending AT Command: ");
     debugPort->write(cmd);
@@ -66,16 +82,17 @@ bool LTEBase::sendATCommand(const char* cmd) {
     telitPort.write(cmd);
     telitPort.write("\r");
 
-    return receiveData();
+    return receiveData(timeout, baudDelay);
 }
-
 
 // TODO: test
 /** Listens to the serial port for data from the Telit module and captures
  *  it in the char* data field. Returns false if at any point communication
  *  times out.
  *
- *  @param  timeout
+ *  @param  timeout     Max time (in millis) we wait for Telit to initiate
+ *                      communication.
+ *  @param  baudDelay   Max wait between data received.
  *  @return bool
  */
 bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
@@ -131,19 +148,86 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         data = (char*) malloc((dataPos) * sizeof(char));
         memcpy(data, receiveBuf, dataPos);
         dataSize = dataPos;
+
+        #ifdef DEBUG
+        debugPort->write("Received Data: \r");
+        debugPort->write(data);
+        debugPort->write("\r");
+        #endif
     } else {
         data = NULL;
         dataSize = 0;
+
+        #ifdef DEBUG
+        debugPort->write("Receive timed out.\r");
+        #endif
     }
     free(receiveBuf);
 
+    return timedOut ? false : true;
+}
+
+// TODO: test
+/** Finds substring in the response data from Telit, and stores a pointer
+ *  to the start of the substring in the field parsedData. If no matching
+ *  substring is found, NULL is stored instead.
+ *
+ *  @param  stringToFind    String of interest.
+ *  @return bool            True if substring is found.
+ */
+bool LTEBase::parseFind(const char* stringToFind) {
+    parsedData = strstr(data, stringToFind);
+    if (parsedData != NULL) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+// TODO: test
+/** Finds substring in the response data from Telit, and stores a pointer
+ *  to the start of the substring in the field parsedData. If no matching
+ *  substring is found, NULL is stored instead.
+ *
+ *  @param  stringToFind    String of interest.
+ *  @return bool            True if substring is found.
+ */
+bool LTEBase::getCommandOK(const char* command) {
+    if (!sendATCommand(command, 2000)) {
+        return false;
+    }
+    if (parseFind("\r\nOK\r\n")) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+// TODO: check
+/** Prints to debug interface the manufacturer ID, model ID, revision ID,
+ *  product serial number ID, and internal mobile subscriber identity.
+ *
+ *  @return void
+ */
+void LTEBase::printRegistration() {
     #ifdef DEBUG
-    debugPort->write("Received Data:\r")
-    debugPort->write(receiveBuf);
-    debugPort->write("\r");
+    debugPort->write("Printing registration information ...\r");
     #endif
 
-    return timedOut ? false : true;
+    if (sendATCommand("AT+CGMI") && parseFind("OK")) debugPort->write(data);
+    if (sendATCommand("AT+CGMM") && parseFind("OK")) debugPort->write(data);
+    if (sendATCommand("AT+CGMR") && parseFind("OK")) debugPort->write(data);
+    if (sendATCommand("AT+CGSN") && parseFind("OK")) debugPort->write(data);
+    if (sendATCommand("AT+CIMI") && parseFind("OK")) debugPort->write(data);
+}
+
+// TODO: finish
+/** Determines if the modem is connected to the cell network.
+ *
+ *  @return bool    True if modem is connected.
+ */
+bool LTEBase::isConnected() {
+    return false;
 }
 
 #endif

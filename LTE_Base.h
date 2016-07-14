@@ -23,7 +23,7 @@
 
 
 class LTEBase {
-  public:
+public:
     // Basic setup
     LTEBase(HardwareSerial &telitPort, HardwareSerial* debugPort);
     virtual bool init(uint16_t lte_band);
@@ -47,7 +47,7 @@ class LTEBase {
     virtual void printRegistration();  /* Prints serial numbers */
     virtual bool isConnected();  /* Connection status */
 
-  protected:
+protected:
     HardwareSerial telitPort;  /* Telit serial interface */
     HardwareSerial* debugPort = NULL;  /* Pointer so it can default to null */
     char* data;  /* Response data from Telit */

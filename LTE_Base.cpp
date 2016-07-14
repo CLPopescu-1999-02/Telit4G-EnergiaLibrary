@@ -33,8 +33,8 @@ LTEBase::LTEBase(HardwareSerial& tp, HardwareSerial* dp) {
 /** Sets up initial settings, and selects frequency band that Telit
  *  uses to communicate.
  *
- *  @param  lte_band   Frequency band used by Telit.
- *  @return bool    True on success.
+ *  @param  lte_band    Frequency band used by Telit.
+ *  @return bool        True on success.
  */
 bool LTEBase::init(uint16_t lte_band) {
     #ifdef DEBUG

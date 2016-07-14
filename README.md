@@ -15,11 +15,13 @@ LTE_Base
   |     * (in the future) support for cookies
   |   
   |--> LTE_VOIP
+  |     * Will define a phone class
   |     * dial, hang up, etc
   |
   |--> LTE_SMTP
+        * Will define a mail client class
         * select mail server
         * send/fetch
 ```
 
-Users can then use the LTE_Base class to implement their own custom classes that use different AT commands.
+Users can then use the provided classes for basic functionality, or use the LTE_Base class to implement their own custom classes that use different AT commands.

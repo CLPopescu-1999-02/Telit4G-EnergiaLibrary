@@ -3,7 +3,7 @@
  * 4G/LTE Library for Telit LE910SV module and Energia.
  *
  * This library is adapted from the GSM Arduino library provided by
- * Justin Downs (2010) at
+ * Justin Downs (2010)] at
  * http://wiki.groundlab.cc/doku.php?id=gsm_arduino_library
  *
  * This file is free software; you can redistribute it and/or modify
@@ -25,12 +25,12 @@ public:
     bool init(uint16_t lte_band);
 
     // HTTP Methods
-    httpGET();
-    httpHEAD();
-    httpDELETE();
-    httpPOST();
-    httpPUT();
-    receive();
+    bool httpGET();
+    bool httpHEAD();
+    bool httpDELETE();
+    bool httpPOST();
+    bool httpPUT();
+    bool receive();
 
 private:
     uint32_t hostIP;
@@ -38,6 +38,6 @@ private:
 
 
     char* getBuf;
-}
+};
 
  #endif

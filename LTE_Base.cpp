@@ -36,9 +36,9 @@ LTEBase::LTEBase(HardwareSerial& tp, HardwareSerial* dp) {
  *  @param  lte_band    Frequency band used by Telit.
  *  @return bool        True on success.
  */
-bool LTEBase::init(uint16_t lte_band) {
+bool LTEBase::init(uint32_t lte_band) {
     #ifdef DEBUG
-    debugPort->write("Initializing ...\r");
+    debugPort->write("Initializing ...\r\n");
     #endif
 
     //TODO: look up AT commands to set frequency bands
@@ -46,10 +46,10 @@ bool LTEBase::init(uint16_t lte_band) {
     // Set no echo
     if (!sendATCommand("ATE0", 500, 2000)) return false;
 
-    if (!getCommandOK("ATV1")) return false;  /* Verbose response */
-    if (!getCommandOK("AT+IPR=115200")) return false;  /* Baud rate */
-    if (!getCommandOK("AT+CMEE=2")) return false;  /* Verbose error reports */
-    if (!getCommandOK("AT&K0")) return false;  /* No flow control */
+    if (!getCommandOK("ATV1")) return false;  // Verbose response
+    if (!getCommandOK("AT+IPR=115200")) return false;  // Baud rate
+    if (!getCommandOK("AT+CMEE=2")) return false;  // Verbose error reports
+    if (!getCommandOK("AT&K0")) return false;  // No flow control
 
     /* If you are using a 2G/3G capable device, you would change
      * The arguments here to include your GSM and UMTS bands. For the Telit
@@ -76,11 +76,11 @@ bool LTEBase::sendATCommand(const char* cmd, uint32_t timeout,
     #ifdef DEBUG
     debugPort->write("Sending AT Command: ");
     debugPort->write(cmd);
-    debugPort->write(" ...\r");
+    debugPort->write(" ...\r\n");
     #endif
 
     telitPort.write(cmd);
-    telitPort.write("\r");
+    telitPort.write("\r\n");
 
     return receiveData(timeout, baudDelay);
 }
@@ -99,6 +99,7 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
     // Initialize receive buffer
     int dataSize = 20;  /* Initial size (in chars) of buffer used to
                                  store received data (default is 20) */
+
     char* receiveBuf = (char*) malloc(dataSize * sizeof(char));
     memset((void*) receiveBuf, '\0', dataSize);
     if (receiveBuf == NULL) {  /* No more memory to allocate */
@@ -106,15 +107,15 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
     }
 
     // Block while waiting for the start of the message
-    uint16_t startTime = millis();
-    while (telitPort.available() < 1) {
+    uint32_t startTime = millis();
+    while (!telitPort.available()) {
         if ((millis() - startTime) > timeout) {
             return false;  /* Timeout */
         }
     }
 
     // Receive data from serial port
-    uint16_t dataPos = 0;
+    uint32_t dataPos = 0;
     startTime = millis();
     bool timedOut = false;
     while (!timedOut) {
@@ -150,16 +151,16 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         dataSize = dataPos;
 
         #ifdef DEBUG
-        debugPort->write("Received Data: \r");
+        debugPort->write("Received Data: \r\n");
         debugPort->write(data);
-        debugPort->write("\r");
+        debugPort->write("\r\n");
         #endif
     } else {
         data = NULL;
         dataSize = 0;
 
         #ifdef DEBUG
-        debugPort->write("Receive timed out.\r");
+        debugPort->write("Receive timed out.\r\n");
         #endif
     }
     free(receiveBuf);
@@ -211,7 +212,7 @@ bool LTEBase::getCommandOK(const char* command) {
  */
 void LTEBase::printRegistration() {
     #ifdef DEBUG
-    debugPort->write("Printing registration information ...\r");
+    debugPort->write("Printing registration information ...\r\n");
     #endif
 
     if (sendATCommand("AT+CGMI") && parseFind("OK")) debugPort->write(data);

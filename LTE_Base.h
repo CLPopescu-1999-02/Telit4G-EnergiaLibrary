@@ -16,6 +16,9 @@
 #ifndef LTE_LTE_BASE_H_
 #define LTE_LTE_BASE_H_
 
+// Comment this out to remove debug messages
+//#define DEBUG
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,7 +29,7 @@ class LTEBase {
 public:
     // Basic setup
     LTEBase(HardwareSerial &telitPort, HardwareSerial* debugPort);
-    virtual bool init(uint16_t lte_band);
+    virtual bool init(uint32_t lte_band);
 
     // Only used if you turn on the Telit module using the LaunchPad
     //virtual bool turnOn();
@@ -34,7 +37,7 @@ public:
 
     // Telit communication
     // Basic functions
-    virtual bool sendATCommand(const char*, uint32_t timeout = 180000,
+    virtual bool sendATCommand(const char*, uint32_t timeout = 10000,
                              uint32_t baudDelay = 60);
     virtual bool receiveData(uint32_t timeout, uint32_t baudDelay);
     virtual char* getData() { return data; };
@@ -47,11 +50,12 @@ public:
     virtual void printRegistration();  /* Prints serial numbers */
     virtual bool isConnected();  /* Connection status */
 
+
 protected:
     HardwareSerial telitPort;  /* Telit serial interface */
     HardwareSerial* debugPort = NULL;  /* Pointer so it can default to null */
     char* data;  /* Response data from Telit */
-    uint16_t dataSize;  /* Size of response data from Telit */
+    uint32_t dataSize;  /* Size of response data from Telit */
     char* parsedData;  /* Parsed response data */
 };
 

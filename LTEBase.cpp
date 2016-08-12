@@ -16,7 +16,7 @@
 #ifndef LTE_LTE_BASE_
 #define LTE_LTE_BASE_
 
-#include "LTE_Base.h"
+#include "LTEBase.h"
 
 
 /** LTE Base class constructor.
@@ -57,7 +57,6 @@ bool LTEBase::init(uint32_t lte_band) {
     char* band = "";
     int gsm_band = 0;
     int umts_band = 0;
-    sprintf(band, "AT#BND=%d,%d,%d", gsm_band, umts_band, lte_band);
     if (!getCommandOK(band)) return false;
 
     return true;
@@ -73,6 +72,9 @@ bool LTEBase::init(uint32_t lte_band) {
  */
 bool LTEBase::sendATCommand(const char* cmd, uint32_t timeout,
                             uint32_t baudDelay) {
+    // invalid arguments
+    if (timeout <= 0 || baudDelay <= 0) return false;
+
     #ifdef DEBUG
     debugPort->write("Sending AT Command: ");
     debugPort->write(cmd);
@@ -97,7 +99,7 @@ bool LTEBase::sendATCommand(const char* cmd, uint32_t timeout,
  */
 bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
     // Initialize receive buffer
-    int dataSize = 20;  /* Initial size (in chars) of buffer used to
+    uint32_t dataSize = 20;  /* Initial size (in chars) of buffer used to
                                  store received data (default is 20) */
 
     char* receiveBuf = (char*) malloc(dataSize * sizeof(char));
@@ -106,19 +108,33 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         return false;
     }
 
+    fprintf(stderr, "right before we start receiving\r\n");
+
     // Block while waiting for the start of the message
     uint32_t startTime = millis();
-    while (!telitPort.available()) {
+    while (telitPort.available() < 1) {
+        fprintf(stderr, "# available: %d\r\n", telitPort.available());
+        fprintf(stderr, "Start Time: %d\r\n", startTime);
+        fprintf(stderr, "Current Time: %d\r\n", millis());
+        fprintf(stderr, "Difference: %d\r\n\r\n", millis() - startTime);
+        
         if ((millis() - startTime) > timeout) {
+            free(receiveBuf);
             return false;  /* Timeout */
         }
     }
+
+    fprintf(stderr, "right before we start receiving\r\n");
 
     // Receive data from serial port
     uint32_t dataPos = 0;
     startTime = millis();
     bool timedOut = false;
     while (!timedOut) {
+        fprintf(stderr, "%d", dataPos);
+        fprintf(stderr, "%d", dataSize);
+        //printf("%d", receiveBuf[0]);
+
         // Expand buffer if it's full
         if ((dataPos + 1) > dataSize) {
             dataSize *= 2;
@@ -148,7 +164,7 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
     if (!timedOut) {
         data = (char*) malloc((dataPos) * sizeof(char));
         memcpy(data, receiveBuf, dataPos);
-        dataSize = dataPos;
+        recDataSize = dataPos;
 
         #ifdef DEBUG
         debugPort->write("Received Data: \r\n");
@@ -157,7 +173,7 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         #endif
     } else {
         data = NULL;
-        dataSize = 0;
+        recDataSize = 0;
 
         #ifdef DEBUG
         debugPort->write("Receive timed out.\r\n");

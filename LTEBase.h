@@ -17,13 +17,19 @@
 #define LTE_LTE_BASE_H_
 
 // Comment this out to remove debug messages
-//#define DEBUG
+// #define DEBUG
+
+// Uncomment this to enable unit testing
+#define UNIT_TEST
 
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef UNIT_TEST
+#include "MockEnergia.h"
+#else
 #include <Energia.h>
-
+#endif
 
 class LTEBase {
 public:
@@ -55,7 +61,7 @@ protected:
     HardwareSerial telitPort;  /* Telit serial interface */
     HardwareSerial* debugPort = NULL;  /* Pointer so it can default to null */
     char* data;  /* Response data from Telit */
-    uint32_t dataSize;  /* Size of response data from Telit */
+    uint32_t recDataSize;  /* Size of response data from Telit */
     char* parsedData;  /* Parsed response data */
 };
 

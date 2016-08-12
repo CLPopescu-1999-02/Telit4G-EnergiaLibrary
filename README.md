@@ -1,6 +1,8 @@
 # Telit4G-EnergiaLibrary
 Texas Instruments Energia Library for the Telit EVK4 BoosterPack containing the LE910SV-V2 LTE module.
 
+## Currently the sendATCommand() function does not work. Substituted is a dummy function that always returns true.
+
 The general structure of the library is like this:
 
 ```

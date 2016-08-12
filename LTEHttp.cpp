@@ -16,8 +16,8 @@
 #ifndef LTE_LTE_HTTP_
 #define LTE_LTE_HTTP_
 
-#include "LTE_Base.h"
-#include "LTE_Http.h"
+#include "LTEBase.h"
+#include "LTEHttp.h"
 
 
 /** LTE Http class constructor.
@@ -34,7 +34,7 @@ LTEHttp::LTEHttp(HardwareSerial& tp, HardwareSerial* dp) : LTEBase::LTEBase(tp, 
  *  @param  lte_band    Frequency band used by Telit.
  *  @return bool        True on success.
  */
-bool LTEHttp::init(uint16_t lte_band){
+bool LTEHttp::init(uint32_t lte_band){
   LTEBase::init(lte_band);
   //memset(hostIP, '\0', );
   return false;

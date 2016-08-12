@@ -13,16 +13,16 @@
  */
 
 
- #ifndef LTE_LTE_HTTP_H_
- #define LTE_LTE_HTTP_H_
+#ifndef LTE_LTE_HTTP_H_
+#define LTE_LTE_HTTP_H_
 
- #include "LTE_Base.h"
+#include "LTEBase.h"
 
 
 class LTEHttp : public LTEBase {
 public:
     LTEHttp(HardwareSerial &telitPort, HardwareSerial* debugPort);
-    bool init(uint16_t lte_band);
+    bool init(uint32_t lte_band);
 
     // HTTP Methods
     bool httpGET();

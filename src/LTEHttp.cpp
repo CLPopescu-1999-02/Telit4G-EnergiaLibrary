@@ -25,7 +25,7 @@
  *  @param  tp  Telit Serial port.
  *  @param  dp  Debug Serial port pointer.
  */
-LTEHttp::LTEHttp(HardwareSerial& tp, HardwareSerial* dp) : LTEBase::LTEBase(tp, dp) {
+LTEHttp::LTEHttp(HardwareSerial* tp, HardwareSerial* dp) : LTEBase::LTEBase(tp, dp) {
 }
 
 /** Clears IP addresses, and selects frequency band that Telit

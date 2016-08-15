@@ -26,7 +26,7 @@
 #include <string.h>
 
 #ifdef UNIT_TEST
-#include "MockEnergia.h"
+#include "../test/MockEnergia.h"
 #else
 #include <Energia.h>
 #endif
@@ -34,7 +34,7 @@
 class LTEBase {
 public:
     // Basic setup
-    LTEBase(HardwareSerial &telitPort, HardwareSerial* debugPort);
+    LTEBase(HardwareSerial* telitPort, HardwareSerial* debugPort);
     virtual bool init(uint32_t lte_band);
 
     // Only used if you turn on the Telit module using the LaunchPad
@@ -46,8 +46,10 @@ public:
     virtual bool sendATCommand(const char*, uint32_t timeout = 10000,
                              uint32_t baudDelay = 60);
     virtual bool receiveData(uint32_t timeout, uint32_t baudDelay);
-    virtual char* getData() { return data; };
+    virtual char* getData();
     virtual char* getParsedData() { return parsedData; };
+    virtual void clearData();
+
     // More abstracted functions
     virtual bool parseFind(const char*);  /* Search for substring in data */
     bool getCommandOK(const char*);  /* Send command, verify OK response */
@@ -58,7 +60,7 @@ public:
 
 
 protected:
-    HardwareSerial telitPort;  /* Telit serial interface */
+    HardwareSerial* telitPort;  /* Telit serial interface */
     HardwareSerial* debugPort = NULL;  /* Pointer so it can default to null */
     char* data;  /* Response data from Telit */
     uint32_t recDataSize;  /* Size of response data from Telit */

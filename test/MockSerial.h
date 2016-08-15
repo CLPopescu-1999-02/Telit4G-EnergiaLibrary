@@ -24,6 +24,9 @@ public:
   // other basics
   int read();
   int available();
+
+  // for testing purposes
+  void clear();
   
 private:
   bool append_buf(int i);

@@ -21,10 +21,10 @@
 
 /** LTE Base class constructor.
  *
- *  @param  tp  Telit Serial port.
+ *  @param  tp  Telit Serial port pointer.
  *  @param  dp  Debug Serial port pointer.
  */
-LTEBase::LTEBase(HardwareSerial& tp, HardwareSerial* dp) {
+LTEBase::LTEBase(HardwareSerial* tp, HardwareSerial* dp) {
     telitPort = tp;
     debugPort = dp;
 }
@@ -72,8 +72,9 @@ bool LTEBase::init(uint32_t lte_band) {
  */
 bool LTEBase::sendATCommand(const char* cmd, uint32_t timeout,
                             uint32_t baudDelay) {
-    // invalid arguments
-    if (timeout <= 0 || baudDelay <= 0) return false;
+    // Invalid arguments
+    if (timeout == 0 || baudDelay == 0) return false;
+    if (cmd == NULL) return false;
 
     #ifdef DEBUG
     debugPort->write("Sending AT Command: ");
@@ -81,8 +82,8 @@ bool LTEBase::sendATCommand(const char* cmd, uint32_t timeout,
     debugPort->write(" ...\r\n");
     #endif
 
-    telitPort.write(cmd);
-    telitPort.write("\r\n");
+    telitPort->write(cmd);
+    telitPort->write("\r\n");
 
     return receiveData(timeout, baudDelay);
 }
@@ -98,6 +99,10 @@ bool LTEBase::sendATCommand(const char* cmd, uint32_t timeout,
  *  @return bool
  */
 bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
+
+    // Invalid inputs
+    if ((timeout == 0) || (baudDelay == 0)) return false;
+
     // Initialize receive buffer
     uint32_t dataSize = 20;  /* Initial size (in chars) of buffer used to
                                  store received data (default is 20) */
@@ -108,48 +113,36 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         return false;
     }
 
-    fprintf(stderr, "right before we start receiving\r\n");
-
     // Block while waiting for the start of the message
     uint32_t startTime = millis();
-    while (telitPort.available() < 1) {
-        fprintf(stderr, "# available: %d\r\n", telitPort.available());
-        fprintf(stderr, "Start Time: %d\r\n", startTime);
-        fprintf(stderr, "Current Time: %d\r\n", millis());
-        fprintf(stderr, "Difference: %d\r\n\r\n", millis() - startTime);
-        
+    while (telitPort->available() < 1) {
         if ((millis() - startTime) > timeout) {
             free(receiveBuf);
             return false;  /* Timeout */
         }
     }
-
-    fprintf(stderr, "right before we start receiving\r\n");
-
+    
     // Receive data from serial port
     uint32_t dataPos = 0;
     startTime = millis();
     bool timedOut = false;
     while (!timedOut) {
-        fprintf(stderr, "%d", dataPos);
-        fprintf(stderr, "%d", dataSize);
-        //printf("%d", receiveBuf[0]);
-
         // Expand buffer if it's full
-        if ((dataPos + 1) > dataSize) {
+        if (dataPos >= dataSize) {
             dataSize *= 2;
             realloc(receiveBuf, dataSize);
         }
 
         // Store next byte
-        receiveBuf[dataPos] = telitPort.read();
+        receiveBuf[dataPos] = telitPort->read();
         dataPos++;
         startTime = millis();
 
         // Wait for more data
-        while (telitPort.available() < 1) {
+        while (telitPort->available() < 1) {
             if ((millis() - startTime) > baudDelay) {
-                receiveBuf[dataPos] = '\0';  /* Null terminate */
+                if (dataPos >= dataSize) realloc(receiveBuf, dataSize+1);
+                receiveBuf[dataPos] = '\0';  // Null terminate
                 dataPos++;
                 timedOut = true;
                 break;
@@ -157,42 +150,61 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         }
     }
 
-    // Store received data
+    // Free previously stored data
     if (data != NULL) {
         free(data);
     }
-    if (!timedOut) {
-        data = (char*) malloc((dataPos) * sizeof(char));
-        memcpy(data, receiveBuf, dataPos);
-        recDataSize = dataPos;
 
-        #ifdef DEBUG
-        debugPort->write("Received Data: \r\n");
-        debugPort->write(data);
-        debugPort->write("\r\n");
-        #endif
-    } else {
-        data = NULL;
-        recDataSize = 0;
+    data = (char*) malloc((dataPos) * sizeof(char));
+    memcpy(data, receiveBuf, dataPos);
+    recDataSize = dataPos;
 
-        #ifdef DEBUG
-        debugPort->write("Receive timed out.\r\n");
-        #endif
-    }
+    #ifdef DEBUG
+    debugPort->write("Received Data: \r\n");
+    debugPort->write(data);
+    debugPort->write("\r\n");
+    #endif
+
     free(receiveBuf);
 
-    return timedOut ? false : true;
+    return true;
 }
+
+/** Gets stored data that we read from Telit's Serial port. If no data
+ *  exists, then return an empty string.
+ *
+ *  @return char*           Response data, or empty string if data is NULL
+ */
+char* LTEBase::getData() {
+    if (data != NULL)
+        return data;
+    else
+        return "";
+}
+
+/** Deletes all stored received data from the internal buffer.
+ *
+ *  @return void
+ */
+void LTEBase::clearData() {
+    if (data != NULL) free(data);
+    recDataSize = 0;
+    //if (parsedData != NULL) free(parsedData);
+}
+
 
 // TODO: test
 /** Finds substring in the response data from Telit, and stores a pointer
  *  to the start of the substring in the field parsedData. If no matching
- *  substring is found, NULL is stored instead.
+ *  substring is found, NULL is stored instead. Empty string always
+ *  returns false.
  *
  *  @param  stringToFind    String of interest.
  *  @return bool            True if substring is found.
  */
 bool LTEBase::parseFind(const char* stringToFind) {
+    if (stringToFind == "") return false;
+    if (data == NULL) return false;
     parsedData = strstr(data, stringToFind);
     if (parsedData != NULL) {
         return true;

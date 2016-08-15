@@ -21,7 +21,7 @@
 
 class LTEHttp : public LTEBase {
 public:
-    LTEHttp(HardwareSerial &telitPort, HardwareSerial* debugPort);
+    LTEHttp(HardwareSerial* telitPort, HardwareSerial* debugPort);
     bool init(uint32_t lte_band);
 
     // HTTP Methods
@@ -40,4 +40,4 @@ private:
     char* getBuf;
 };
 
- #endif
+#endif

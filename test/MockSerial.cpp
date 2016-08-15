@@ -57,4 +57,10 @@ bool HardwareSerial::append_buf(int i) {
   return true;
 }
 
+void HardwareSerial::clear() {
+  bufsize = 0;
+  read_index = 0;
+  write_index = 0;
+}
+
 #endif

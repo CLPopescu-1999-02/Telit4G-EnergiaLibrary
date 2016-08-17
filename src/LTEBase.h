@@ -35,6 +35,7 @@ class LTEBase {
 public:
     // Basic setup
     LTEBase(HardwareSerial* telitPort, HardwareSerial* debugPort);
+	~LTEBase() { if (data != NULL) free(data); };
     virtual bool init(uint32_t lte_band);
 
     // Only used if you turn on the Telit module using the LaunchPad
@@ -43,12 +44,12 @@ public:
 
     // Telit communication
     // Basic functions
+    virtual char* getData();
+    virtual char* getParsedData();
+    virtual void clearData();
     virtual bool sendATCommand(const char*, uint32_t timeout = 10000,
                              uint32_t baudDelay = 60);
     virtual bool receiveData(uint32_t timeout, uint32_t baudDelay);
-    virtual char* getData();
-    virtual char* getParsedData() { return parsedData; };
-    virtual void clearData();
 
     // More abstracted functions
     virtual bool parseFind(const char*);  /* Search for substring in data */

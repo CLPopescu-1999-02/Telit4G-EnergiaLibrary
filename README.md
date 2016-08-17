@@ -1,29 +1,45 @@
 # Telit4G-EnergiaLibrary
 Texas Instruments Energia Library for the Telit EVK4 BoosterPack containing the LE910SV-V2 LTE module.
 
-## Currently the sendATCommand() function does not work. Substituted is a dummy function that always returns true.
-
 The general structure of the library is like this:
 
 ```
-LTE_Base  
-  | * Will initiate Serial communication with Telit module  
-  | * Will define an interface to send/receive AT commands  
-  |  
-  |--> LTE_HTTP
-  |     * Will define an HTTP client/server class
+Makefile
+README.md
+src/
+  |-- LTEBase
+  |     * Defines serial communication with Telit module
+  |     * Interface to send/receive AT commands
+  |-- LTEHttp
+  |     * Defines an HTTP client/server class
   |     * Abstracts AT commands into GET/POST/PUT/DELETE requests
   |     * Buffer for persistent GET data
-  |     * (in the future) support for cookies
-  |   
-  |--> LTE_VOIP
-  |     * Will define a phone class
-  |     * dial, hang up, etc
   |
-  |--> LTE_SMTP
-        * Will define a mail client class
-        * select mail server
-        * send/fetch
+  |-- LTEVoip & LTESmtp
+  |     * not yet implemented
+test/
+  |-- googletest/
+  |     * Google Test library
+  |
+  |-- unit_test.cpp
+  |     * Test cases for LTEBase (currently writing more)
+  |-- MockSerial
+  |     * Emulates the Serial.h library in Energia
+  |-- MockEnergia
+        * Provides basic functions the Energia IDE contains
 ```
 
-Users can then use the provided classes for basic functionality, or use the LTE_Base class to implement their own custom classes that use different AT commands.
+The user can use the LTEBase/LTEHttp classes to communicate with the Telit BoosterPack. The LTEHttp class abstracts the communication for a simple HTTP server/client. The user can also use the LTEBase class to define his own custom functions (using the sendATCommand() to send AT messages and receive responses).
+
+(For me)
+I'm testing this library as I'm writing it, so I'm using the Google Test library along with two custom ones that emulate Energia and Serial communcation. You can run the test cases by running the following command:
+```
+make clean
+make all
+./unit_test
+```
+Or run a specific test (listed in unit\_test.cpp) with the command:
+```
+./unit\_test --gtest\_filter=TESTGROUP.\*
+./unit\_test --gtest\_filter=\*.TESTCASE
+```

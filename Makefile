@@ -17,7 +17,7 @@
 GTEST_DIR = test/googletest
 
 # Where to find user code.
-USER_DIR = ../4G_Library
+USER_DIR = $(CURDIR)
 
 # Flags passed to the preprocessor.
 # Set Google Test's header directory as a system directory, such that
@@ -30,7 +30,7 @@ CPPFLAGS += -isystem $(USER_DIR)/src
 # Flags passed to the C++ compiler.
 # CXXFLAGS += -g -Wall -Wextra -pthread
 # Less comments
-CXXFLAGS += -g -w -pthread
+CXXFLAGS += -g -Wall -pthread
 
 # All tests produced by this Makefile.  Remember to add new tests you
 # created to the list.

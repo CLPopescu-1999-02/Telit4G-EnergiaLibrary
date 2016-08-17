@@ -54,7 +54,7 @@ bool LTEBase::init(uint32_t lte_band) {
     /* If you are using a 2G/3G capable device, you would change
      * The arguments here to include your GSM and UMTS bands. For the Telit
      * EVK4 (LE910SV-V2), _band can be 4 or 13. */
-    char* band = "";
+    char* band = '\0';
     int gsm_band = 0;
     int umts_band = 0;
     if (!getCommandOK(band)) return false;
@@ -130,7 +130,11 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         // Expand buffer if it's full
         if (dataPos >= dataSize) {
             dataSize *= 2;
-            realloc(receiveBuf, dataSize);
+            receiveBuf = (char*) realloc(receiveBuf, dataSize);
+			if (receiveBuf == NULL) {
+				return false;
+				// TODO: possible memory leak if we realloc and no more space
+			}
         }
 
         // Store next byte
@@ -141,7 +145,11 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         // Wait for more data
         while (telitPort->available() < 1) {
             if ((millis() - startTime) > baudDelay) {
-                if (dataPos >= dataSize) realloc(receiveBuf, dataSize+1);
+                if (dataPos >= dataSize) {
+					receiveBuf = (char*) realloc(receiveBuf, dataSize+1);
+					if (receiveBuf == NULL) return false;
+						// TODO: possible memory leak here too
+				}
                 receiveBuf[dataPos] = '\0';  // Null terminate
                 dataPos++;
                 timedOut = true;
@@ -153,6 +161,7 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
     // Free previously stored data
     if (data != NULL) {
         free(data);
+        data = NULL;
     }
 
     data = (char*) malloc((dataPos) * sizeof(char));
@@ -178,8 +187,22 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
 char* LTEBase::getData() {
     if (data != NULL)
         return data;
-    else
-        return "";
+    else {
+        return (char*) '\0';
+	}
+}
+
+/** Returns a pointer to the start of the substring found by parseFind().
+ *  If parseFind found no matching string, this contains NULL.
+ *
+ *  @return char*           Substring of interest, or NULL.
+ */
+char* LTEBase::getParsedData() {
+    if (parsedData != NULL)
+        return parsedData;
+    else {
+        return NULL;
+	}
 }
 
 /** Deletes all stored received data from the internal buffer.
@@ -187,9 +210,12 @@ char* LTEBase::getData() {
  *  @return void
  */
 void LTEBase::clearData() {
-    if (data != NULL) free(data);
+    if (data != NULL) {
+        free(data);
+        data = NULL;
+    }
+	parsedData = NULL;
     recDataSize = 0;
-    //if (parsedData != NULL) free(parsedData);
 }
 
 
@@ -203,8 +229,9 @@ void LTEBase::clearData() {
  *  @return bool            True if substring is found.
  */
 bool LTEBase::parseFind(const char* stringToFind) {
-    if (stringToFind == "") return false;
-    if (data == NULL) return false;
+    if ((stringToFind == NULL) || 
+		 (stringToFind[0] == '\0') || (data == NULL))
+		return false;
     parsedData = strstr(data, stringToFind);
     if (parsedData != NULL) {
         return true;

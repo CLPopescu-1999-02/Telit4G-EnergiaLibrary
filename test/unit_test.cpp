@@ -46,8 +46,8 @@ TEST(BaseTest, TelitCommunication) {
     EXPECT_TRUE(base.sendATCommand("Some text"));
     EXPECT_TRUE(base.sendATCommand("Some text", 1, 1));
     EXPECT_FALSE(base.sendATCommand("Some text", 0, 0));
-    EXPECT_TRUE(base.sendATCommand("", 1, 9999999999));
-    EXPECT_TRUE(base.sendATCommand("", 9999999999, 1));
+    EXPECT_TRUE(base.sendATCommand("", 1, (uint32_t) 9999999999));
+    EXPECT_TRUE(base.sendATCommand("", (uint32_t) 9999999999, 1));
 }
 
 TEST(BaseTest, GetData) {
@@ -61,7 +61,7 @@ TEST(BaseTest, GetData) {
 
     // TESTS
     // getData()
-    EXPECT_STREQ("", base.getData());
+    EXPECT_STREQ(NULL, base.getData());
     base.sendATCommand("x");
     EXPECT_STRNE("x", base.getData());
     EXPECT_STREQ("x\r\n", base.getData());
@@ -85,16 +85,33 @@ TEST(BaseTest, ParseData) {
     base.sendATCommand("Some text");
     EXPECT_TRUE(base.parseFind("text"));
     base.clearData();
+
     base.sendATCommand("");
     EXPECT_TRUE(base.parseFind("\r\n"));
     base.clearData();
+
     EXPECT_FALSE(base.parseFind("\r\n"));
     EXPECT_FALSE(base.parseFind(""));
+
     base.sendATCommand("");
     EXPECT_FALSE(base.parseFind("")); // Empty string is always false
     base.clearData();
 
+/*
+ *  TODO: NOT YET FINISHED, gotta debug
+ *
     // getParsedData()
+	EXPECT_STREQ(NULL, base.getParsedData());
+	base.sendATCommand("Some text goes here");
+	EXPECT_TRUE(base.parseFind("text"));
+	EXPECT_STREQ("text goes here\r\n", base.getParsedData());
+	base.clearData();
+
+	//base.sendATCommand("Some text goes here");
+	EXPECT_TRUE(base.parseFind("\r\n"));
+	//EXPECT_STREQ("\r\n", base.getParsedData());
+	base.clearData();
+*/
 }
 
 TEST(BaseTest, BaseSetup) {

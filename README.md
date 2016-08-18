@@ -38,8 +38,8 @@ make clean
 make all
 ./unit_test
 ```
-Or run a specific test (listed in unit\_test.cpp) with the command:
+Or run a specific test (listed in unit_test.cpp) with the command:
 ```
-./unit\_test --gtest\_filter=TESTGROUP.\*
-./unit\_test --gtest\_filter=\*.TESTCASE
+./unit_test --gtest_filter=TESTGROUP.*
+./unit_test --gtest_filter=*.TESTCASE
 ```

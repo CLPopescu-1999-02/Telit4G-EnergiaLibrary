@@ -5,6 +5,7 @@
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
+	initmillis();
     return RUN_ALL_TESTS();
 }
 
@@ -48,6 +49,8 @@ TEST(BaseTest, TelitCommunication) {
     EXPECT_FALSE(base.sendATCommand("Some text", 0, 0));
     EXPECT_TRUE(base.sendATCommand("", 1, (uint32_t) 9999999999));
     EXPECT_TRUE(base.sendATCommand("", (uint32_t) 9999999999, 1));
+
+	// getCommandOK()
 }
 
 TEST(BaseTest, GetData) {
@@ -97,35 +100,19 @@ TEST(BaseTest, ParseData) {
     EXPECT_FALSE(base.parseFind("")); // Empty string is always false
     base.clearData();
 
-/*
- *  TODO: NOT YET FINISHED, gotta debug
- *
     // getParsedData()
 	EXPECT_STREQ(NULL, base.getParsedData());
 	base.sendATCommand("Some text goes here");
 	EXPECT_TRUE(base.parseFind("text"));
 	EXPECT_STREQ("text goes here\r\n", base.getParsedData());
-	base.clearData();
 
-	//base.sendATCommand("Some text goes here");
+	base.clearData();
+	base.sendATCommand("Some text goes here");
 	EXPECT_TRUE(base.parseFind("\r\n"));
-	//EXPECT_STREQ("\r\n", base.getParsedData());
+	EXPECT_STREQ("\r\n", base.getParsedData());
 	base.clearData();
-*/
+
+	EXPECT_FALSE(base.parseFind("\r\n"));
+	EXPECT_STREQ(NULL, base.getParsedData());
+	base.clearData();
 }
-
-TEST(BaseTest, BaseSetup) {
-    // SETUP
-    HardwareSerial telit_serial;
-    HardwareSerial debug_serial;
-    telit_serial.begin(9600);
-    debug_serial.begin(9600);
-    initmillis();
-    LTEBase base(&telit_serial, &debug_serial);
-
-    // TESTS
-    // init()
-    // placeholder
-    EXPECT_TRUE(true);
-}
-

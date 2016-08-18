@@ -51,6 +51,9 @@ all : $(TESTS)
 clean :
 	rm -f $(TESTS) gtest.a gtest_main.a *.o
 
+redo : 
+	rm -f $(TESTS) gtest.a gtest_main.a unit_test.o gtest-all.o
+
 # Builds gtest.a and gtest_main.a.
 
 # Usually you shouldn't tweak such internal variables, indicated by a

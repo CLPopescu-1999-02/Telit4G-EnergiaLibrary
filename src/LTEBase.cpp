@@ -27,7 +27,10 @@
 LTEBase::LTEBase(HardwareSerial* tp, HardwareSerial* dp) {
     telitPort = tp;
     debugPort = dp;
+	data = NULL;
+	parsedData = NULL;
 }
+
 
 // TODO: test
 /** Sets up initial settings, and selects frequency band that Telit
@@ -62,7 +65,7 @@ bool LTEBase::init(uint32_t lte_band) {
     return true;
 }
 
-// TODO: test
+
 /** Sends an AT command to the Telit module, and lets the user know
  *  if there is a response.
  *
@@ -88,7 +91,7 @@ bool LTEBase::sendATCommand(const char* cmd, uint32_t timeout,
     return receiveData(timeout, baudDelay);
 }
 
-// TODO: test
+
 /** Listens to the serial port for data from the Telit module and captures
  *  it in the char* data field. Returns false if at any point communication
  *  times out.
@@ -179,6 +182,7 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
     return true;
 }
 
+
 /** Gets stored data that we read from Telit's Serial port. If no data
  *  exists, then return an empty string.
  *
@@ -191,6 +195,7 @@ char* LTEBase::getData() {
         return (char*) '\0';
 	}
 }
+
 
 /** Returns a pointer to the start of the substring found by parseFind().
  *  If parseFind found no matching string, this contains NULL.
@@ -219,7 +224,6 @@ void LTEBase::clearData() {
 }
 
 
-// TODO: test
 /** Finds substring in the response data from Telit, and stores a pointer
  *  to the start of the substring in the field parsedData. If no matching
  *  substring is found, NULL is stored instead. Empty string always
@@ -232,6 +236,7 @@ bool LTEBase::parseFind(const char* stringToFind) {
     if ((stringToFind == NULL) || 
 		 (stringToFind[0] == '\0') || (data == NULL))
 		return false;
+	
     parsedData = strstr(data, stringToFind);
     if (parsedData != NULL) {
         return true;
@@ -239,6 +244,7 @@ bool LTEBase::parseFind(const char* stringToFind) {
         return false;
     }
 }
+
 
 // TODO: test
 /** Finds substring in the response data from Telit, and stores a pointer

@@ -16,11 +16,14 @@
 #ifndef LTE_LTE_BASE_H_
 #define LTE_LTE_BASE_H_
 
+
 // Comment this out to remove debug messages
 // #define DEBUG
 
 // Uncomment this to enable unit testing
 #define UNIT_TEST
+
+
 
 #include <stdlib.h>
 #include <string.h>
@@ -39,6 +42,7 @@ public:
     virtual bool init(uint32_t lte_band);
 
     // Only used if you turn on the Telit module using the LaunchPad
+	// Should not be used
     //virtual bool turnOn();
     //virtual bool turnOff();
 

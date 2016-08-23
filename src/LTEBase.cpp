@@ -2,9 +2,6 @@
  * Copyright (c) 2016 by Wenlong Xiong <wenlongx@ucla.edu>
  * 4G/LTE Library for Telit LE910SV module and Energia.
  *
- * This library is adapted from the GSM Arduino library provided by
- * Justin Downs (2010) at
- * http://wiki.groundlab.cc/doku.php?id=gsm_arduino_library
  *
  * This file is free software; you can redistribute it and/or modify
  * it under the terms of either the GNU General Public License version 2
@@ -27,8 +24,8 @@
 LTEBase::LTEBase(HardwareSerial* tp, HardwareSerial* dp) {
     telitPort = tp;
     debugPort = dp;
-	data = NULL;
-	parsedData = NULL;
+	data = "";
+	parsedData = "";
 }
 
 
@@ -44,22 +41,25 @@ bool LTEBase::init(uint32_t lte_band) {
     debugPort->write("Initializing ...\r\n");
     #endif
 
-    //TODO: look up AT commands to set frequency bands
-
-    // Set no echo
-    if (!sendATCommand("ATE0", 500, 2000)) return false;
-
+    if (!sendATCommand("ATE0", 500, 2000)) return false;  // No command echo
     if (!getCommandOK("ATV1")) return false;  // Verbose response
     if (!getCommandOK("AT+IPR=115200")) return false;  // Baud rate
     if (!getCommandOK("AT+CMEE=2")) return false;  // Verbose error reports
     if (!getCommandOK("AT&K0")) return false;  // No flow control
 
+    if (!getCommandOK("AT+FCLASS=0")) return false;  // Data calls
+
     /* If you are using a 2G/3G capable device, you would change
-     * The arguments here to include your GSM and UMTS bands. For the Telit
-     * EVK4 (LE910SV-V2), _band can be 4 or 13. */
-    char* band = '\0';
-    int gsm_band = 0;
-    int umts_band = 0;
+     * The arguments here to include your GSM and UMTS bands. The Telit
+     * EVK4 (LE910SV-V2) operates on LTE bands 4 and 13.
+     * 
+     * The command is in this order: AT#BND=GSM,UMTS,LTE
+     * 
+     * Refer to the Telit AT-command guide to determine the correct values.
+     * For LTE, given LTE Band n, the argument passed in is 2 exp(n - 1). For
+     * example, LTE band 13 would need us to pass in 2^(13-1) = 4096.
+     * */
+    std::string band = "AT#BND=0,0,8"; // No GSM/UMTS, LTE Band 4
     if (!getCommandOK(band)) return false;
 
     return true;
@@ -73,11 +73,11 @@ bool LTEBase::init(uint32_t lte_band) {
  *  @return bool  True if there is a response from the module,
  *                false otherwise.
  */
-bool LTEBase::sendATCommand(const char* cmd, uint32_t timeout,
+bool LTEBase::sendATCommand(const std::string cmd, uint32_t timeout,
                             uint32_t baudDelay) {
     // Invalid arguments
     if (timeout == 0 || baudDelay == 0) return false;
-    if (cmd == NULL) return false;
+    if (cmd == "") return false;
 
     #ifdef DEBUG
     debugPort->write("Sending AT Command: ");
@@ -106,78 +106,44 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
     // Invalid inputs
     if ((timeout == 0) || (baudDelay == 0)) return false;
 
-    // Initialize receive buffer
-    uint32_t dataSize = 20;  /* Initial size (in chars) of buffer used to
-                                 store received data (default is 20) */
-
-    char* receiveBuf = (char*) malloc(dataSize * sizeof(char));
-    memset((void*) receiveBuf, '\0', dataSize);
-    if (receiveBuf == NULL) {  /* No more memory to allocate */
-        return false;
-    }
-
     // Block while waiting for the start of the message
     uint32_t startTime = millis();
     while (telitPort->available() < 1) {
         if ((millis() - startTime) > timeout) {
-            free(receiveBuf);
             return false;  /* Timeout */
         }
     }
     
+    std::string receiveBuf = "";
+    uint32_t receivedSize = 0;
+
     // Receive data from serial port
-    uint32_t dataPos = 0;
     startTime = millis();
     bool timedOut = false;
     while (!timedOut) {
-        // Expand buffer if it's full
-        if (dataPos >= dataSize) {
-            dataSize *= 2;
-            receiveBuf = (char*) realloc(receiveBuf, dataSize);
-			if (receiveBuf == NULL) {
-				return false;
-				// TODO: possible memory leak if we realloc and no more space
-			}
-        }
-
         // Store next byte
-        receiveBuf[dataPos] = telitPort->read();
-        dataPos++;
+        receiveBuf += (char) telitPort->read();
+        receivedSize = 0;
         startTime = millis();
 
         // Wait for more data
         while (telitPort->available() < 1) {
             if ((millis() - startTime) > baudDelay) {
-                if (dataPos >= dataSize) {
-					receiveBuf = (char*) realloc(receiveBuf, dataSize+1);
-					if (receiveBuf == NULL) return false;
-						// TODO: possible memory leak here too
-				}
-                receiveBuf[dataPos] = '\0';  // Null terminate
-                dataPos++;
                 timedOut = true;
                 break;
             }
         }
     }
 
-    // Free previously stored data
-    if (data != NULL) {
-        free(data);
-        data = NULL;
-    }
-
-    data = (char*) malloc((dataPos) * sizeof(char));
-    memcpy(data, receiveBuf, dataPos);
-    recDataSize = dataPos;
+    data = receiveBuf;
+    recDataSize = receivedSize;
+    parsedData = "";
 
     #ifdef DEBUG
     debugPort->write("Received Data: \r\n");
     debugPort->write(data);
     debugPort->write("\r\n");
     #endif
-
-    free(receiveBuf);
 
     return true;
 }
@@ -186,28 +152,20 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
 /** Gets stored data that we read from Telit's Serial port. If no data
  *  exists, then return an empty string.
  *
- *  @return char*           Response data, or empty string if data is NULL
+ *  @return std::string     Data received from Telit.
  */
-char* LTEBase::getData() {
-    if (data != NULL)
-        return data;
-    else {
-        return (char*) '\0';
-	}
+std::string LTEBase::getData() {
+    return data;
 }
 
 
 /** Returns a pointer to the start of the substring found by parseFind().
- *  If parseFind found no matching string, this contains NULL.
+ *  If parseFind found no matching string, returns empty string.
  *
- *  @return char*           Substring of interest, or NULL.
+ *  @return std::string     Substring of interest, or empty string.
  */
-char* LTEBase::getParsedData() {
-    if (parsedData != NULL)
-        return parsedData;
-    else {
-        return NULL;
-	}
+std::string LTEBase::getParsedData() {
+    return parsedData;
 }
 
 /** Deletes all stored received data from the internal buffer.
@@ -215,46 +173,42 @@ char* LTEBase::getParsedData() {
  *  @return void
  */
 void LTEBase::clearData() {
-    if (data != NULL) {
-        free(data);
-        data = NULL;
-    }
-	parsedData = NULL;
+    data = "";
+    parsedData = "";
     recDataSize = 0;
 }
 
 
-/** Finds substring in the response data from Telit, and stores a pointer
- *  to the start of the substring in the field parsedData. If no matching
- *  substring is found, NULL is stored instead. Empty string always
- *  returns false.
+/** Finds substring stringToFind in the response data from Telit,
+ *  and stores the the rest of the response data starting from
+ *  AFTER stringToFind in the parsedData field. If no matching
+ *  substring is found, empty string is stored instead. Empty
+ *  string always returns false.
  *
  *  @param  stringToFind    String of interest.
  *  @return bool            True if substring is found.
  */
-bool LTEBase::parseFind(const char* stringToFind) {
-    if ((stringToFind == NULL) || 
-		 (stringToFind[0] == '\0') || (data == NULL))
+bool LTEBase::parseFind(const std::string stringToFind) {
+    if ((stringToFind == "") || 
+		 (stringToFind == "") || (data == ""))
 		return false;
 	
-    parsedData = strstr(data, stringToFind);
-    if (parsedData != NULL) {
-        return true;
-    } else {
-        return false;
-    }
+    int substrPos = data.find(stringToFind);
+    if (substrPos == std::string::npos) return false;
+    parsedData = data.substr(substrPos + stringToFind.length());
+    return true;
 }
 
 
 // TODO: test
-/** Finds substring in the response data from Telit, and stores a pointer
- *  to the start of the substring in the field parsedData. If no matching
- *  substring is found, NULL is stored instead.
+/** Sends an AT Command, listens for a response, and looks for an
+ *  "OK" code in the response. If an "OK" is received, this function
+ *  returns true, otherwise it returns false.
  *
- *  @param  stringToFind    String of interest.
- *  @return bool            True if substring is found.
+ *  @param  std::string     AT Command.
+ *  @return bool            True if OK is received.
  */
-bool LTEBase::getCommandOK(const char* command) {
+bool LTEBase::getCommandOK(const std::string command) {
     if (!sendATCommand(command, 2000)) {
         return false;
     }
@@ -283,12 +237,38 @@ void LTEBase::printRegistration() {
     if (sendATCommand("AT+CIMI") && parseFind("OK")) debugPort->write(data);
 }
 
-// TODO: finish
+// TODO: test
+/** Determines if the modem is connected to the cell network, and returns
+ *  a Received Signal Strength Indicator (integer between 0 and 7).
+ *  0: -4 to -3 dBm
+ *  1: -6 to -5 dBm
+ *  2: -8 to -7 dBm
+ *  3: -10 to -9 dBm
+ *  4: -13 to -11 dBm
+ *  5: -15 to -14 dBm
+ *  6: -17 to -16 dBm
+ *  7: -19 to -18 dBm
+ *  -1: Not connected/no signal detected
+ *
+ *  @return int     Received Signal Strength Indication (between 0 and 7)
+ */
+int LTEBase::getConnectionStrength() {
+    if (!sendATCommand("AT+CSQ") || !parseFind(",")) return false;
+    if (parsedData.find("\r\n") != std::string::npos) {
+        std::string rsrq = parsedData.substr(0, parsedData.find("\r\n"));
+        if (stoi(rsrq) == 99) return false;
+        else return stoi(rsrq);
+    }
+    else return -1;
+}
+
+// TODO: test
 /** Determines if the modem is connected to the cell network.
  *
  *  @return bool    True if modem is connected.
  */
 bool LTEBase::isConnected() {
+    if (getConnectionStrength() != -1) return true;
     return false;
 }
 

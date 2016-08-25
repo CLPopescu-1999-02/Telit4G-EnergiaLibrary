@@ -35,61 +35,50 @@
 
 #include "LTEBase.h"
 
-#define DEFAULT_PROFILE 1
+#define DEFAULT_CONN_ID 1
+#define DEFAULT_CID 3
+#define RECV_BUF_SIZE 10000
 
 class LTEHttp : public LTEBase {
 public:
     LTEHttp(HardwareSerial* telitPort, HardwareSerial* debugPort);
     bool init(uint32_t lte_band);
 
-    // Setters
-    bool setAddress(int ip1, int ip2, int ip3, int ip4,
-                    int profile = DEFAULT_PROFILE);  // Set IP address
-    bool setAddress(std::string hostname, int profile = DEFAULT_PROFILE);  // Host name solved with a DNS query
-    bool setServerPort(int remote_port, int profile = DEFAULT_PROFILE);
-    bool setAuthentication(bool auth_type, std::string usr = "",
-                           std::string pass = "", int profile = DEFAULT_PROFILE);
-    bool setSSLEnabled(bool ssl, int profile = DEFAULT_PROFILE);
-    bool setTimeout(int timeo, int profile = DEFAULT_PROFILE);
-    bool setCID(int cid, int profile = DEFAULT_PROFILE);
-    bool setPacketSize(int packet_size, int profile = DEFAULT_PROFILE);
+    // TCP/IP stack
+    bool openSocket(char* r_ip, int r_port = 80, int conn_id = DEFAULT_CONN_ID, int packet_size = 300, int inactivity_timeout = 90, int connection_timeout = 600);
+    bool socketReady();
+    int getSocketStatus();
+    bool socketPause();
+    int socketWrite(char* str);
+    int socketReceive();
+    bool closeSocket();
 
-    // Getters
-    std::string getAddress(int profile = DEFAULT_PROFILE) { return serverIP[profile]; };
-    int getServerPort(int profile = DEFAULT_PROFILE) { return remote_port[profile]; };
-    bool getAuthType(int profile = DEFAULT_PROFILE) { return auth_type[profile]; };
-    std::string getUsername(int profile = DEFAULT_PROFILE) { return username[profile]; };
-    std::string getPassword(int profile = DEFAULT_PROFILE) { return password[profile]; };
-    bool getSSLEnabled(int profile = DEFAULT_PROFILE) { return ssl[profile]; };
-    int getTimeout(int profile = DEFAULT_PROFILE) { return timeout[profile]; };
-    int getCID(int profile = DEFAULT_PROFILE) { return cid[profile]; };
-    int getPacketSize(int profile = DEFAULT_PROFILE) { return packet_size[profile]; };
-
-    // HTTP Methods
-    bool httpGET(std::string resource, std::string header = "", int profile = DEFAULT_PROFILE);
-    bool httpHEAD(std::string resource, std::string header = "", int profile = DEFAULT_PROFILE);
-    bool httpDELETE(std::string resource, std::string header = "", int profile = DEFAULT_PROFILE);
+    // Basic HTTP functions
+    bool httpGET();
     bool httpPOST();
-    bool httpPUT();
-    bool receive();
 
     // Other utility functions
     void reset();
+    bool setAuth(int authentication, char* usr = "", char* pass = "");
+    bool setSSL(bool ssl);
 
 private:
-    // The Telit LE910 can store up to 3 profiles
-    std::string hostIP;
-    std::string serverIP[3];
-    int remote_port[3];
-    int auth_type[3];
-    std::string username[3];
-    std::string password[3];
-    bool ssl[3];
-    int timeout[3];
-    int cid[3];
-    int packet_size[3];
+    int connectionID;
+    int cid;
 
-    std::string httpGETBuf;
+    char hostIP[40];
+    char remoteIP[40];
+    int remotePort;
+    int authType;
+    char username[64];
+    char password[64];
+    bool ssl;
+    int timeout;
+    int packetSize;
+    int socketStatus;
+
+    char receiveBuf[RECV_BUF_SIZE];
+    int recvSize;
 };
 
 #endif

@@ -30,7 +30,7 @@ CPPFLAGS += -isystem $(USER_DIR)/src
 # Flags passed to the C++ compiler.
 # CXXFLAGS += -g -Wall -Wextra -pthread
 # Less comments
-CXXFLAGS += -g -Wall -pthread
+CXXFLAGS += -g -w -pthread
 
 # All tests produced by this Makefile.  Remember to add new tests you
 # created to the list.

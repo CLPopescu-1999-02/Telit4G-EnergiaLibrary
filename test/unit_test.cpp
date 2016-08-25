@@ -29,30 +29,25 @@ TEST(BaseTest, TelitCommunication) {
     ASSERT_FALSE(base.receiveData(1, 0));
     ASSERT_FALSE(base.receiveData(0, 1));
     ASSERT_FALSE(base.receiveData(1, 1));
+    ASSERT_FALSE(base.receiveData());
     ASSERT_TRUE((telit_serial.write("x") && base.receiveData(1, 1)));
     telit_serial.clear();
     ASSERT_FALSE((telit_serial.write("x") && base.receiveData(1, 0)));
     telit_serial.clear();
     ASSERT_FALSE((telit_serial.write("x") && base.receiveData(0, 1)));
     telit_serial.clear();
+    ASSERT_FALSE((telit_serial.write("x") && base.receiveData(0, 0)));
+    telit_serial.clear();
 
     // sendATCommand()
+    telit_serial.clear();
     EXPECT_FALSE(base.sendATCommand(""));
+    EXPECT_FALSE(base.receiveData());
     EXPECT_TRUE(base.sendATCommand("text"));
-    EXPECT_FALSE(base.sendATCommand("text", 0));
     telit_serial.clear();
-    EXPECT_TRUE(base.sendATCommand("text", 1));
-    EXPECT_FALSE(base.sendATCommand("text", 0, 1));
-    EXPECT_FALSE(base.sendATCommand("text", 1, 0));
-    telit_serial.clear();
-    EXPECT_TRUE(base.sendATCommand("text", 1, 1));
-    EXPECT_TRUE(base.sendATCommand("Some text"));
-    EXPECT_TRUE(base.sendATCommand("Some text", 1, 1));
-    EXPECT_FALSE(base.sendATCommand("Some text", 0, 0));
-    EXPECT_TRUE(base.sendATCommand("text", 1, (uint32_t) 9999999999));
-    EXPECT_TRUE(base.sendATCommand("text", (uint32_t) 9999999999, 1));
 
 	// getCommandOK()
+    
 }
 
 TEST(BaseTest, GetData) {
@@ -68,10 +63,12 @@ TEST(BaseTest, GetData) {
     // getData()
     EXPECT_EQ("", base.getData());
     base.sendATCommand("x");
+    base.receiveData();
     EXPECT_NE("x", base.getData());
     EXPECT_EQ("x\r\n", base.getData());
     EXPECT_EQ("x\r\n", base.getData()); // Data is not deleted by getData()
     base.sendATCommand("Some text");
+    base.receiveData();
     EXPECT_EQ("Some text\r\n", base.getData());  // However, it is erased
                                                     // by sendATCommand()
 }
@@ -88,10 +85,12 @@ TEST(BaseTest, ParseData) {
     // TESTS
     // parseFind()
     base.sendATCommand("Some text");
+    base.receiveData();
     EXPECT_TRUE(base.parseFind("text"));
     base.clearData();
 
     base.sendATCommand("text");
+    base.receiveData();
     EXPECT_TRUE(base.parseFind("\r\n"));
     base.clearData();
 
@@ -99,17 +98,20 @@ TEST(BaseTest, ParseData) {
     EXPECT_FALSE(base.parseFind(""));
 
     base.sendATCommand("");
+    base.receiveData();
     EXPECT_FALSE(base.parseFind("")); // Empty string is always false
     base.clearData();
 
     // getParsedData()
 	EXPECT_EQ("", base.getParsedData());
 	base.sendATCommand("Some text goes here");
+    base.receiveData();
 	EXPECT_TRUE(base.parseFind("text"));
 	EXPECT_EQ(" goes here\r\n", base.getParsedData());
 
 	base.clearData();
 	base.sendATCommand("Some text goes here");
+    base.receiveData();
 	EXPECT_TRUE(base.parseFind("\r\n"));
 	EXPECT_EQ("", base.getParsedData());
 	base.clearData();
@@ -125,7 +127,7 @@ TEST(BaseTest, ParseData) {
 //                  Test LTE HTTP                        //
 ///////////////////////////////////////////////////////////
 //
-TEST(HttpTest, SetIP) {
+TEST(HttpTest, OpenSocket) {
     // SETUP
     HardwareSerial telit_serial;
     HardwareSerial debug_serial;
@@ -133,6 +135,7 @@ TEST(HttpTest, SetIP) {
     debug_serial.begin(9600);
     initmillis();
     LTEHttp http(&telit_serial, &debug_serial);
+    http.init(4);
 
     // TESTS
     // setAddress()

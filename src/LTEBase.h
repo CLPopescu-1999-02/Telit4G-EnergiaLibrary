@@ -41,6 +41,7 @@
 // Uncomment this to enable unit testing
 #define UNIT_TEST
 
+#define BUF_SIZE 1000
 
 #include <stdlib.h>
 #include <string.h>
@@ -59,16 +60,15 @@ public:
 
     // Telit communication
     // Basic functions
-    virtual std::string getData();
-    virtual std::string getParsedData();
+    virtual char* getData();
+    virtual char* getParsedData();
     virtual void clearData();
-    virtual bool sendATCommand(const std::string, uint32_t timeout = 10000,
-                             uint32_t baudDelay = 60);
-    virtual bool receiveData(uint32_t timeout, uint32_t baudDelay);
+    virtual bool sendATCommand(const char*);
+    virtual bool receiveData(uint32_t timeout = 10000, uint32_t baudDelay = 60);
 
     // More abstracted functions
-    virtual bool parseFind(const std::string);  // Search for substring in data
-    bool getCommandOK(const std::string);  // Send command, verify OK response
+    virtual bool parseFind(const char*);  // Search for substring in data
+    virtual bool getCommandOK(const char*);  // Send command, verify OK response
 
     // Basic commands for Telit module
     virtual void printRegistration();  // Prints serial numbers
@@ -78,9 +78,10 @@ public:
 protected:
     HardwareSerial* telitPort;  // Telit serial interface
     HardwareSerial* debugPort;  // Pointer so it can default to null
-    std::string data;  // Response data from Telit
+    char data[BUF_SIZE];  // Response data from Telit
     uint32_t recDataSize;  // Size of response data from Telit
-    std::string parsedData;  // Parsed response data
+    char* parsedData;  // Parsed response data
+    bool bufferFull;
 };
 
 #endif

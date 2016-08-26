@@ -47,9 +47,8 @@ bool LTEBase::init(uint32_t lte_band) {
     if (!getCommandOK("ATV1")) return false;  // Verbose response
     if (!getCommandOK("AT+IPR=115200")) return false;  // Baud rate
     if (!getCommandOK("AT+CMEE=2")) return false;  // Verbose error reports
-    if (!getCommandOK("AT&K0")) return false;  // No flow control
+	if (!getCommandOK("AT+CGATT=1")) return false;  // GPRS attach
 
-    if (!getCommandOK("AT+FCLASS=0")) return false;  // Data calls
 
     /* If you are using a 2G/3G capable device, you would change
      * The arguments here to include your GSM and UMTS bands. The Telit
@@ -141,7 +140,7 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         }
     }
 
-    data[receivedSize] = '\0';
+    if (receivedSize < BUF_SIZE) data[receivedSize] = '\0';
     recDataSize = receivedSize;
 
     #ifdef DEBUG
@@ -245,25 +244,6 @@ void LTEBase::printRegistration() {
         debugPort->write(data);
 }
 
-// TODO: test
-/** Determines if the modem is connected to the cell network, and returns
- *  a Received Signal Strength Indicator (integer between 0 and 7).
- *  0: -4 to -3 dBm
- *  1: -6 to -5 dBm
- *  2: -8 to -7 dBm
- *  3: -10 to -9 dBm
- *  4: -13 to -11 dBm
- *  5: -15 to -14 dBm
- *  6: -17 to -16 dBm
- *  7: -19 to -18 dBm
- *  -1: Not connected/no signal detected
- *
- *  @return int     Received Signal Strength Indication (between 0 and 7)
- */
-int LTEBase::getConnectionStrength() {
-// TODO: rewrite this
-    return -1;
-}
 
 // TODO: test
 /** Determines if the modem is connected to the cell network.
@@ -271,7 +251,8 @@ int LTEBase::getConnectionStrength() {
  *  @return bool    True if modem is connected.
  */
 bool LTEBase::isConnected() {
-    if (getConnectionStrength() != -1) return true;
+    if (getCommandOK("AT+CGATT?") && parseFind("+CGATT: 1"))
+		return true;
     return false;
 }
 

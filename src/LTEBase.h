@@ -73,7 +73,6 @@ public:
     // Basic commands for Telit module
     virtual void printRegistration();  // Prints serial numbers
     virtual bool isConnected();  // Connection status
-    virtual int getConnectionStrength();  // Connection strength
 
 protected:
     HardwareSerial* telitPort;  // Telit serial interface

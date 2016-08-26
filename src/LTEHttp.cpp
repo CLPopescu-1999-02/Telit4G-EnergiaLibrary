@@ -36,16 +36,15 @@ LTEHttp::LTEHttp(HardwareSerial* tp, HardwareSerial* dp) : LTEBase(tp, dp) {
  *  @return bool        True on success.
  */
 bool LTEHttp::init(uint32_t lte_band) {
-    LTEBase::init(lte_band);
-    return isConnected();
+    return (LTEBase::init(lte_band) && isConnected());
 }
 
 
 /** Sets up and opens a TCP/IP socket with the given settings. By default,
  *  the socket is opened up on connection ID 1. If you would like to use
  *  multiple sockets at once (to query multiple servers, or to have your
- *  application act as both a server/client), you must open the sockets on
- *  different conenction ID's.
+ *  application act as both a server/client), you must open other sockets
+ *  on different conenction ID's.
  *
  *  @param  r_ip                Remote IP address (in form "xxx.xxx.xxx.xxx")
  *  @param  r_port              Remote port. Default 80.
@@ -71,15 +70,6 @@ bool LTEHttp::openSocket(char* r_ip, int r_port, int conn_id, int pkt_size,
     strncpy(remoteIP, r_ip, strlen(r_ip)+1);
     remotePort = r_port;
 
-    // TODO: check/make sure steps are correct
-    // Set up context number properly
-    // +CGDCONT to look up context (figure out which is activated already)
-    // #SCFG to set socket settings in specific context to the ones specified
-    // #SGACT=context,status to activate
-    // look at the return to figure out your own ip
-    // AT#SGACTAUTH for authentication
-    // AT#SD to dial
-
     // Choose which connection you would like to use with the CID
     // Sets socket configuratiion for the specific ID
     char cmd[64];
@@ -91,10 +81,16 @@ bool LTEHttp::openSocket(char* r_ip, int r_port, int conn_id, int pkt_size,
     memset(cmd, '\0', 64);
     sprintf(cmd, "AT#SGACT=%d,0", cid);
     sendATCommand(cmd);
-
     memset(cmd, '\0', 64);
     sprintf(cmd, "AT#SGACT=%d,1", cid);
-    if (!getCommandOK(cmd) || !parseFind("#SGACT: ")) return false;
+    if (!getCommandOK(cmd)) return false;
+
+	// Wait for PDP context activation
+	int x = millis();
+	while (millis() - x < 2000);
+
+	// Get self IP from PDP context
+	if (!parseFind("#SGACT: ")) return false;
     char* temp = getParsedData();
     if (strstr(temp, ",") == NULL) {
         strncpy(hostIP, temp, strlen(temp)+1);
@@ -103,24 +99,40 @@ bool LTEHttp::openSocket(char* r_ip, int r_port, int conn_id, int pkt_size,
 
     // Open socket
     memset(cmd, '\0', 64);
-    sprintf(cmd, "AT#SD=%d,%d,%d,255,0,0", cid, remotePort, remoteIP);
+    sprintf(cmd, "AT#SD=%d,0,%d,%d,255,0,0", connectionID, remotePort, remoteIP);
     if (!getCommandOK(cmd)) return false;
 
-    // TODO: check to see if socket actually opened
-    // AT#SS
-    // should wait for a bit before you return this
-    // 4 seconds?
-    return getSocketStatus() == 2 ? true : false;
+	// Wait for socket connect
+	x = millis();
+	while (millis() - x < 2000);
 
-    return true;
+    return getSocketStatus() == 2 ? true : false;
 }
 
-// converted
+
+/** Checks if socket is connected and ready to transmit data.
+ *
+ *  @return	bool	True if socket is ready to transmit data.
+ */
 bool LTEHttp::socketReady() {
     return getSocketStatus() == 1 ? true : false;
 }
 
-// converted
+
+/** Queries the state of the TCP/IP socket at the connection ID. Updates
+ *  the private variable.
+ *  	0: Socket closed
+ *  	1: Socket with active data transfer connection
+ *  	2: Socket suspended
+ *  	3: Socket suspended with pending data
+ *  	4: Socket listening
+ *  	5: Socket with incoming connection, waiting for
+ *  	   user accept or shutdown command
+ *  	6: Socket resolvuing DNS.
+ *  	7: Socket connecting
+ *
+ *  @return	int		Current socket state.
+ */
 int LTEHttp::getSocketStatus() {
     getCommandOK("AT#SS");
     char match[8];
@@ -130,33 +142,45 @@ int LTEHttp::getSocketStatus() {
     return socketStatus;
 }
 
+
+/** Attempts to pause socket connection to allow AT commands to be sent.
+ *  
+ *  @return	bool	True on success.
+ */
 bool LTEHttp::socketPause() {
     if ((socketStatus == 1) || (socketStatus == 4)) {
-        // write +++
-        // TODO: finish
-        
+		if (socketWrite("+++") == -1) return false;
         getSocketStatus();
-        
         return true;
     }
     else return false;
 }
 
+
 int LTEHttp::socketWrite(char* str) {
-    // TODO: also figure this out
     if (!socketReady()) return -1;
     return telitPort->write(str);
 }
 
+
+// TODO: right now it just copies to a bigger buffer
+// maybe should just output to the debug port?
 int LTEHttp::socketReceive() {
-    // figure this out
-    // TODO:
+	int count = 0;
+	do {
+		receiveData(timeout*1000);
+		int temp = strlen(getData());
+		strncpy(receiveBuf+count, getData(), strlen(getData()));
+		count += temp;
+	} while (bufferFull);
 }
+
 
 bool LTEHttp::closeSocket() {
     if (getSocketStatus() != 0) getCommandOK("AT#SH");
     return true;
 }
+
 
 /** Resets private variables to their default values.
  *
@@ -172,7 +196,7 @@ void LTEHttp::reset() {
     memset(username, '\0', 64);
     memset(password, '\0', 64);
     ssl = false;
-    timeout = 120;
+    timeout = 90;
     packetSize = 300;
     socketStatus = getSocketStatus();
 

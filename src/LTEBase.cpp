@@ -24,8 +24,8 @@
 LTEBase::LTEBase(HardwareSerial* tp, HardwareSerial* dp) {
     telitPort = tp;
     debugPort = dp;
-	memset(data, '\0', BUF_SIZE);
-	parsedData = NULL;
+    memset(data, '\0', BUF_SIZE);
+    parsedData = NULL;
     bufferFull = false;
 }
 
@@ -42,13 +42,11 @@ bool LTEBase::init(uint32_t lte_band) {
     debugPort->write("Initializing ...\r\n");
     #endif
 
-    if (!sendATCommand("ATE0") || !receiveData(500, 2000))  // No command echo
-        return false;
+    if (!getCommandOK("ATE0")) return false;  // No command echo
     if (!getCommandOK("ATV1")) return false;  // Verbose response
     if (!getCommandOK("AT+IPR=115200")) return false;  // Baud rate
     if (!getCommandOK("AT+CMEE=2")) return false;  // Verbose error reports
-	if (!getCommandOK("AT+CGATT=1")) return false;  // GPRS attach
-
+    if (!getCommandOK("AT+CGATT=1")) return false;  // GPRS attach  
 
     /* If you are using a 2G/3G capable device, you would change
      * The arguments here to include your GSM and UMTS bands. The Telit
@@ -77,9 +75,9 @@ bool LTEBase::sendATCommand(const char* cmd) {
     if ((cmd == NULL) || (cmd[0] == '\0') || (bufferFull)) return false;
 
     #ifdef DEBUG
-    debugPort->write("Sending AT Command: ");
+    debugPort->write("Sending AT Command: \"");
     debugPort->write(cmd);
-    debugPort->write(" ...\r\n");
+    debugPort->write("\"\r\n");
     #endif
 
     telitPort->write(cmd);
@@ -104,7 +102,7 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
 
     // Block while waiting for the start of the message
     uint32_t startTime = millis();
-    while (telitPort->available() < 1) {
+    while (!telitPort->available()) {
         if ((millis() - startTime) > timeout) {
             return false;  // Timeout
         }
@@ -126,10 +124,13 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         }
 
         // Store next byte
-        data[receivedSize] = (char) telitPort->read();
-        receivedSize++;
+        char c = (char) telitPort->read();
+        if (!((receivedSize == 0) && ((c == '\0') || (c == '\r') || (c == '\n')))) {
+            data[receivedSize] = c;
+            receivedSize++;
+        }
         startTime = millis();
-
+        
         // Wait for more data
         while (telitPort->available() < 1) {
             if ((millis() - startTime) > baudDelay) {
@@ -144,9 +145,9 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
     recDataSize = receivedSize;
 
     #ifdef DEBUG
-    debugPort->write("Received Data: \r\n");
+    debugPort->write("--- Received Data ---\r\n");
     debugPort->write(data);
-    debugPort->write("\r\n");
+    debugPort->write("--- End Received Data ---\r\n\r\n");
     #endif
 
     return true;
@@ -156,7 +157,7 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
 /** Gets stored data that we read from Telit's Serial port. If no data
  *  exists, then return an empty string.
  *
- *  @return std::string     Data received from Telit.
+ *  @return char*   Data received from Telit.
  */
 char* LTEBase::getData() {
     return data;
@@ -166,7 +167,7 @@ char* LTEBase::getData() {
 /** Returns a pointer to the start of the substring found by parseFind().
  *  If parseFind found no matching string, returns empty string.
  *
- *  @return std::string     Substring of interest, or empty string.
+ *  @return char*   Substring of interest, or empty string.
  */
 char* LTEBase::getParsedData() {
     return parsedData;
@@ -194,11 +195,12 @@ void LTEBase::clearData() {
  */
 bool LTEBase::parseFind(const char* stringToFind) {
     if ((stringToFind == NULL) || 
-		 (stringToFind[0] == '\0') || (data[0] == '\0'))
-		return false;
+        (stringToFind[0] == '\0') || (data[0] == '\0'))
+        return false;
 	
     // TODO:
     char* beginning = strstr(data, stringToFind);
+    if (beginning == NULL) return false;
     parsedData = beginning + strlen(stringToFind);
     return true;
 }
@@ -214,7 +216,7 @@ bool LTEBase::parseFind(const char* stringToFind) {
  */
 bool LTEBase::getCommandOK(const char* command) {
     if (!sendATCommand(command) || !receiveData(2000)) return false;
-    if (parseFind("\r\nOK\r\n")) {
+    if (parseFind("OK\r\n")) {
         return true;
     } else {
         return false;
@@ -232,16 +234,31 @@ void LTEBase::printRegistration() {
     debugPort->write("Printing registration information ...\r\n");
     #endif
 
-    if (sendATCommand("AT+CGMI") && receiveData() && parseFind("OK"))
-        debugPort->write(data);
-    if (sendATCommand("AT+CGMM") && receiveData() && parseFind("OK"))
-        debugPort->write(data);
-    if (sendATCommand("AT+CGMR") && receiveData() && parseFind("OK"))
-        debugPort->write(data);
-    if (sendATCommand("AT+CGSN") && receiveData() && parseFind("OK"))
-        debugPort->write(data);
-    if (sendATCommand("AT+CIMI") && receiveData() && parseFind("OK"))
-        debugPort->write(data);
+    if (sendATCommand("AT+CGMI") && receiveData() && parseFind("\r\nOK\r\n")) {
+        debugPort->write("Manufacturer Identification: ");
+        parseFind("\r\n");
+        debugPort->write((uint8_t*) data, recDataSize - strlen(parsedData));
+    }
+    if (sendATCommand("AT+CGMM") && receiveData() && parseFind("\r\nOK\r\n")) {
+        debugPort->write("Model Identification: ");
+        parseFind("\r\n");
+        debugPort->write((uint8_t*) data, recDataSize - strlen(parsedData));
+    }
+    if (sendATCommand("AT+CGMR") && receiveData() && parseFind("\r\nOK\r\n")) {
+        debugPort->write("Revision Identification: ");
+        parseFind("\r\n");
+        debugPort->write((uint8_t*) data, recDataSize - strlen(parsedData));
+    }
+    if (sendATCommand("AT+CGSN") && receiveData() && parseFind("\r\nOK\r\n")) {
+        debugPort->write("Product Serial Number Identification: ");
+        parseFind("\r\n");
+        debugPort->write((uint8_t*) data, recDataSize - strlen(parsedData));
+    }
+    if (sendATCommand("AT+CIMI") && receiveData() && parseFind("\r\nOK\r\n")) {
+        debugPort->write("International Mobile Subscriber Number: ");
+        parseFind("\r\n");
+        debugPort->write((uint8_t*) data, recDataSize - strlen(parsedData));
+    }
 }
 
 

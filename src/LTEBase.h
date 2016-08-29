@@ -36,10 +36,10 @@
 
 
 // Uncomment this to enable debugging messages
-// #define DEBUG
+//#define DEBUG
 
 // Uncomment this to enable unit testing
-#define UNIT_TEST
+//#define UNIT_TEST
 
 #define BUF_SIZE 1000
 
@@ -56,6 +56,7 @@ class LTEBase {
 public:
     // Basic setup
     LTEBase(HardwareSerial* telitPort, HardwareSerial* debugPort = NULL);
+    virtual ~LTEBase() {};
     virtual bool init(uint32_t lte_band);
 
     // Telit communication

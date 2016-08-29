@@ -41,7 +41,7 @@
 
 class LTEHttp : public LTEBase {
 public:
-    LTEHttp(HardwareSerial* telitPort, HardwareSerial* debugPort);
+    LTEHttp(HardwareSerial* telitPort, HardwareSerial* debugPort = NULL);
     bool init(uint32_t lte_band);
 
     // TCP/IP stack

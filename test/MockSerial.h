@@ -20,6 +20,7 @@ public:
   int write(int x);
   int write(std::string);
   int write(const char* x, int len);
+  int write(uint8_t* x, int len);
 
   // other basics
   int read();

@@ -29,6 +29,10 @@ int HardwareSerial::write(const char* x, int len) {
   return count;
 }
 
+int HardwareSerial::write(uint8_t* x, int len) {
+    return write((const char*) x, len);
+}
+
 int HardwareSerial::write(std::string str) {
   int len = str.length();
   const char* x = str.c_str();

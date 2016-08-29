@@ -26,7 +26,7 @@
  *  @param  tp  Telit Serial port.
  *  @param  dp  Debug Serial port pointer.
  */
-LTEHttp::LTEHttp(HardwareSerial* tp, HardwareSerial* dp) : LTEBase(tp, dp) {
+LTEHttp::LTEHttp(HardwareSerial* tp, HardwareSerial* dp) : LTEBase::LTEBase(tp, dp) {
     reset();
 }
 
@@ -157,6 +157,11 @@ bool LTEHttp::socketPause() {
 }
 
 
+/** Wrapper function for writing to the Telit serial port.
+ *
+ *  @param  str     String to write.
+ *  @return	int     Number of bytes written.
+ */
 int LTEHttp::socketWrite(char* str) {
     if (!socketReady()) return -1;
     return telitPort->write(str);
@@ -176,8 +181,15 @@ int LTEHttp::socketReceive() {
 }
 
 
+/** Self explanatory.
+ *
+ *  @return	bool	True on success.
+ */
 bool LTEHttp::closeSocket() {
-    if (getSocketStatus() != 0) getCommandOK("AT#SH");
+    if (getSocketStatus() != 0) {
+        if (socketStatus == 2) socketPause();
+        getCommandOK("AT#SH");
+    }
     return true;
 }
 
@@ -190,7 +202,7 @@ void LTEHttp::reset() {
     connectionID = DEFAULT_CONN_ID;
     cid = DEFAULT_CID;
     memset(hostIP, '\0', 40);
-    memset(remoteIP, '\0', 40);
+    //memset(remoteIP, '\0', 40);
     remotePort = 80;
     authType = 0;
     memset(username, '\0', 64);

@@ -41,7 +41,7 @@
 // Uncomment this to enable unit testing
 //#define UNIT_TEST
 
-#define BUF_SIZE 1000
+#define BUF_SIZE 10000
 
 #include <stdlib.h>
 #include <string.h>
@@ -85,3 +85,4 @@ protected:
 };
 
 #endif
+

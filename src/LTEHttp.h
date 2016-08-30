@@ -36,22 +36,24 @@
 #include "LTEBase.h"
 
 #define DEFAULT_CONN_ID 1
-#define DEFAULT_CID 3
-#define RECV_BUF_SIZE 10000
+#define DEFAULT_CID     3 // This should not be changed.
+#define RECV_BUF_SIZE   10000
+#define DEFAULT_APN     "vzwinternet"
 
 class LTEHttp : public LTEBase {
 public:
     LTEHttp(HardwareSerial* telitPort, HardwareSerial* debugPort = NULL);
-    bool init(uint32_t lte_band);
+    virtual bool init(uint32_t lte_band, char* apn = DEFAULT_APN);
 
     // TCP/IP stack
-    bool openSocket(char* r_ip, int r_port = 80, int conn_id = DEFAULT_CONN_ID, int packet_size = 300, int inactivity_timeout = 90, int connection_timeout = 600);
+    bool socketOpen(char* r_ip, int r_port = 80, int conn_id = DEFAULT_CONN_ID, int packet_size = 300, int inactivity_timeout = 180, int connection_timeout = 600);
     bool socketReady();
     int getSocketStatus();
-    bool socketPause();
+    //bool socketPause();
+    //bool socketResume();
     int socketWrite(char* str);
     int socketReceive();
-    bool closeSocket();
+    bool socketClose();
 
     // Basic HTTP functions
     bool httpGET();
@@ -61,8 +63,9 @@ public:
     void reset();
     bool setAuth(int authentication, char* usr = "", char* pass = "");
     bool setSSL(bool ssl);
+    bool gprsAttach();
 
-private:
+protected:
     int connectionID;
     int cid;
 
@@ -77,8 +80,9 @@ private:
     int packetSize;
     int socketStatus;
 
-    char receiveBuf[RECV_BUF_SIZE];
+    char* receiveBuf;
     int recvSize;
 };
 
 #endif
+

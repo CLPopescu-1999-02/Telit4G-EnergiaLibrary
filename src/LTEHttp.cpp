@@ -30,13 +30,29 @@ LTEHttp::LTEHttp(HardwareSerial* tp, HardwareSerial* dp) : LTEBase::LTEBase(tp, 
     reset();
 }
 
-/** Selects frequency band used by Telit to communicate
+/** Initializes access point settings to connect to internet.
  *
- *  @param  lte_band    Frequency band used by Telit.
- *  @return bool        True on success.
+ *  @param  lte_band  4G band to use.
+ *  @param  apn       Access point name.
+ *  @return bool      True on Success
  */
-bool LTEHttp::init(uint32_t lte_band) {
-    return (LTEBase::init(lte_band) && isConnected());
+bool LTEHttp::init(uint32_t lte_band, char* apn) {
+    char cmd[40];
+    sprintf(cmd, "AT#SGACT=%d,0", DEFAULT_CID);
+    sendATCommand(cmd);
+    receiveData();
+
+    // Change this line
+    //sprintf(cmd, "AT+CGDCONT=%d,\"IP\",\"vzwinternet\",\"\",0,0", DEFAULT_CID);
+    //if (!getCommandOK(cmd)) return false;
+    
+    sprintf(cmd, "AT#SGACT=%d,1", DEFAULT_CID);
+    getCommandOK(cmd);
+debugPort->write("AT#SGACT=3,1 response \r\n");
+debugPort->write(getData());
+    //if (!getCommandOK(cmd)) return false;
+
+    return LTEBase::init(lte_band);
 }
 
 
@@ -58,7 +74,7 @@ bool LTEHttp::init(uint32_t lte_band) {
  *                              milliseconds. Range is 10-1200.
  *  @return                     Boolean on success.
  */
-bool LTEHttp::openSocket(char* r_ip, int r_port, int conn_id, int pkt_size,
+bool LTEHttp::socketOpen(char* r_ip, int r_port, int conn_id, int pkt_size,
                          int inactivity_timeo, int conn_timeo) {
     // invalid 
     if ((r_ip == NULL) || (r_ip[0] == '\0') || (r_port < 1) ||
@@ -67,8 +83,10 @@ bool LTEHttp::openSocket(char* r_ip, int r_port, int conn_id, int pkt_size,
         (inactivity_timeo < 0) || (inactivity_timeo > 65535) ||
         (conn_timeo < 10) || (conn_timeo > 1200)) return false;
 
-    strncpy(remoteIP, r_ip, strlen(r_ip)+1);
+    strncpy(remoteIP, r_ip, strlen(r_ip));
     remotePort = r_port;
+
+    if (!gprsAttach()) return false;
 
     // Choose which connection you would like to use with the CID
     // Sets socket configuratiion for the specific ID
@@ -76,37 +94,33 @@ bool LTEHttp::openSocket(char* r_ip, int r_port, int conn_id, int pkt_size,
     sprintf(cmd, "AT#SCFG=%d,%d,%d,%d,%d,0",
             conn_id, cid, pkt_size, inactivity_timeo, conn_timeo);
     if (!getCommandOK(cmd)) return false;
-
+    
     // Activate PDP context
     memset(cmd, '\0', 64);
     sprintf(cmd, "AT#SGACT=%d,0", cid);
-    sendATCommand(cmd);
+    getCommandOK(cmd);    
     memset(cmd, '\0', 64);
     sprintf(cmd, "AT#SGACT=%d,1", cid);
-    if (!getCommandOK(cmd)) return false;
-
-	// Wait for PDP context activation
-	int x = millis();
-	while (millis() - x < 2000);
-
-	// Get self IP from PDP context
-	if (!parseFind("#SGACT: ")) return false;
-    char* temp = getParsedData();
-    if (strstr(temp, ",") == NULL) {
-        strncpy(hostIP, temp, strlen(temp)+1);
+    if (!sendATCommand(cmd) || !receiveData(10000)) return false;
+    
+    // Get self IP from PDP context
+    if (!parseFind("#SGACT: ")) memset(hostIP, '\0', 40);
+    else {
+        char* temp = getParsedData();
+        if (strstr(temp, ",") == NULL) {
+            strncpy(hostIP, temp, strlen(temp));
+        }
+        else strncpy(hostIP, temp, strstr(temp, ",") - temp);
     }
-    else strncpy(hostIP, temp, strstr(temp, ",") - temp);
 
     // Open socket
     memset(cmd, '\0', 64);
-    sprintf(cmd, "AT#SD=%d,0,%d,%d,255,0,0", connectionID, remotePort, remoteIP);
-    if (!getCommandOK(cmd)) return false;
-
-	// Wait for socket connect
-	x = millis();
-	while (millis() - x < 2000);
-
-    return getSocketStatus() == 2 ? true : false;
+    sprintf(cmd, "AT#SD=%d,0,%d,%s,255,0,1", connectionID, remotePort, r_ip);
+    if (!sendATCommand(cmd) || !receiveData(10000) || !parseFind("OK")) return false;
+    //if (!sendATCommand(cmd) || !receiveData(10000) || !parseFind("CONNECT")) return false;
+debugPort->write(getData());
+    socketStatus = getSocketStatus();
+    return true;
 }
 
 
@@ -115,7 +129,8 @@ bool LTEHttp::openSocket(char* r_ip, int r_port, int conn_id, int pkt_size,
  *  @return	bool	True if socket is ready to transmit data.
  */
 bool LTEHttp::socketReady() {
-    return getSocketStatus() == 1 ? true : false;
+    int x = getSocketStatus();
+    return ((x == 0) || (x == 6) || (x == 7)) ? false : true;
 }
 
 
@@ -128,32 +143,20 @@ bool LTEHttp::socketReady() {
  *  	4: Socket listening
  *  	5: Socket with incoming connection, waiting for
  *  	   user accept or shutdown command
- *  	6: Socket resolvuing DNS.
- *  	7: Socket connecting
+ *  	6: Socket resolving DNS.
+ *  	7: Socket connecting.
  *
- *  @return	int		Current socket state.
+ *  @return	int		Current socket state. -1 for error.
  */
 int LTEHttp::getSocketStatus() {
     getCommandOK("AT#SS");
     char match[8];
     sprintf(match, "#SS: %d", connectionID);
-    parseFind(match);
-    socketStatus = getParsedData()[0] - '0';
-    return socketStatus;
-}
-
-
-/** Attempts to pause socket connection to allow AT commands to be sent.
- *  
- *  @return	bool	True on success.
- */
-bool LTEHttp::socketPause() {
-    if ((socketStatus == 1) || (socketStatus == 4)) {
-		if (socketWrite("+++") == -1) return false;
-        getSocketStatus();
-        return true;
+    if (parseFind(match)) {
+        socketStatus = (getParsedData())[0] - '0';
+        return socketStatus;
     }
-    else return false;
+    else return -1;
 }
 
 
@@ -164,20 +167,54 @@ bool LTEHttp::socketPause() {
  */
 int LTEHttp::socketWrite(char* str) {
     if (!socketReady()) return -1;
-    return telitPort->write(str);
+    
+    char cmd[16];
+    sprintf(cmd, "AT#SSEND=%d", connectionID);
+    sendATCommand(cmd);
+    receiveData();
+    if (!parseFind(">")) return -1;
+
+    telitPort->write(str);
+    telitPort->write("\r\n\r\n");
+    receiveData();
+
+    if (parseFind("OK")) return strlen(str);
+    else return -1;
 }
 
 
 // TODO: right now it just copies to a bigger buffer
 // maybe should just output to the debug port?
 int LTEHttp::socketReceive() {
-	int count = 0;
-	do {
-		receiveData(timeout*1000);
-		int temp = strlen(getData());
-		strncpy(receiveBuf+count, getData(), strlen(getData()));
-		count += temp;
-	} while (bufferFull);
+    if (receiveBuf != NULL) {
+        free(receiveBuf);
+        receiveBuf = NULL;
+    }
+
+    receiveBuf = (char*) malloc(1500 * sizeof(char));
+
+    int totalBytesReceived = 0;
+    int currentReceived = 0;
+    char cmd[16];
+    sprintf(cmd, "AT#SRECV=%d,1500", cid);
+    char find[16];
+    sprintf(cmd, "#SRECV: %d,", cid);
+    while (true) {
+        if (!sendATCommand(cmd) || !receiveData() || !parseFind(find)) break;
+debugPort->write(getData());
+        char* b = strsep(&parsedData, "\r\n");
+        currentReceived += atoi(b);
+debugPort->write(parsedData);
+
+        // transfer bytes
+        
+        while (bufferFull) {
+            receiveData();
+        }
+        totalBytesReceived += currentReceived;
+    }
+
+    return totalBytesReceived;
 }
 
 
@@ -185,14 +222,21 @@ int LTEHttp::socketReceive() {
  *
  *  @return	bool	True on success.
  */
-bool LTEHttp::closeSocket() {
-    if (getSocketStatus() != 0) {
-        if (socketStatus == 2) socketPause();
-        getCommandOK("AT#SH");
-    }
+bool LTEHttp::socketClose() {
+    getCommandOK("AT#SH");
+    if (getSocketStatus() == 0) return true;
     return true;
 }
 
+/** Connects to the GPRS network.
+ * 
+ *  @return bool  True on success
+ */
+bool LTEHttp::gprsAttach() {
+    getCommandOK("AT+CGATT?");
+    if (!parseFind("1")) return getCommandOK("AT+CGATT=1");
+    return false;
+}
 
 /** Resets private variables to their default values.
  *
@@ -202,7 +246,7 @@ void LTEHttp::reset() {
     connectionID = DEFAULT_CONN_ID;
     cid = DEFAULT_CID;
     memset(hostIP, '\0', 40);
-    //memset(remoteIP, '\0', 40);
+    memset(remoteIP, '\0', 40);
     remotePort = 80;
     authType = 0;
     memset(username, '\0', 64);
@@ -210,9 +254,12 @@ void LTEHttp::reset() {
     ssl = false;
     timeout = 90;
     packetSize = 300;
-    socketStatus = getSocketStatus();
-
-    memset(receiveBuf, '\0', RECV_BUF_SIZE);
+    socketStatus = 0;
+    
+    if (receiveBuf != NULL) {
+        free(receiveBuf);
+        receiveBuf = NULL;
+    }
     recvSize = 0;
 }
 

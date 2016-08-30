@@ -184,11 +184,12 @@ void LTEBase::clearData() {
 }
 
 
-/** Finds substring stringToFind in the response data from Telit,
- *  and stores the the rest of the response data starting from
- *  AFTER stringToFind in the parsedData field. If no matching
- *  substring is found, empty string is stored instead. Empty
- *  string always returns false.
+/** Finds first instance of substring stringToFind in the
+ *  response data from Telit, and stores the the rest of the
+ *  response data starting from AFTER stringToFind in the
+ *  parsedData field. If no matching substring is found,
+ *  empty string is stored instead. Empty string always
+ *  returns false.
  *
  *  @param  stringToFind    String of interest.
  *  @return bool            True if substring is found.
@@ -215,7 +216,7 @@ bool LTEBase::parseFind(const char* stringToFind) {
  *  @return bool        True if OK is received.
  */
 bool LTEBase::getCommandOK(const char* command) {
-    if (!sendATCommand(command) || !receiveData(2000)) return false;
+    if (!sendATCommand(command) || !receiveData(4000)) return false;
     if (parseFind("OK\r\n")) {
         return true;
     } else {
@@ -274,3 +275,4 @@ bool LTEBase::isConnected() {
 }
 
 #endif
+

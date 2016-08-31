@@ -24,7 +24,7 @@
 LTEBase::LTEBase(HardwareSerial* tp, HardwareSerial* dp) {
     telitPort = tp;
     debugPort = dp;
-    memset(data, '\0', BUF_SIZE);
+    memset(data, '\0', BASE_BUF_SIZE);
     parsedData = NULL;
     bufferFull = false;
 }
@@ -108,7 +108,7 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         }
     }
 
-    memset(data, '\0', BUF_SIZE);
+    memset(data, '\0', BASE_BUF_SIZE);
     bufferFull = false;
 
     uint32_t receivedSize = 0;
@@ -118,7 +118,7 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
     startTime = millis();
     bool timedOut = false;
     while (!timedOut) {
-        if (receivedSize >=BUF_SIZE) {
+        if (receivedSize >= BASE_BUF_SIZE) {
             bufferFull = true;
             break;
         }
@@ -141,7 +141,7 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         }
     }
 
-    if (receivedSize < BUF_SIZE) data[receivedSize] = '\0';
+    if (receivedSize < BASE_BUF_SIZE) data[receivedSize] = '\0';
     recDataSize = receivedSize;
 
     #ifdef DEBUG
@@ -178,7 +178,7 @@ char* LTEBase::getParsedData() {
  *  @return void
  */
 void LTEBase::clearData() {
-    memset(data, '\0', BUF_SIZE);
+    memset(data, '\0', BASE_BUF_SIZE);
     parsedData = NULL;
     recDataSize = 0;
 }
@@ -216,7 +216,7 @@ bool LTEBase::parseFind(const char* stringToFind) {
  *  @return bool        True if OK is received.
  */
 bool LTEBase::getCommandOK(const char* command) {
-    if (!sendATCommand(command) || !receiveData(4000)) return false;
+    if (!sendATCommand(command) || !receiveData(4000, 500)) return false;
     if (parseFind("OK\r\n")) {
         return true;
     } else {

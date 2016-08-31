@@ -41,7 +41,7 @@
 // Uncomment this to enable unit testing
 //#define UNIT_TEST
 
-#define BUF_SIZE 10000
+#define BASE_BUF_SIZE 2000
 
 #include <stdlib.h>
 #include <string.h>
@@ -78,7 +78,7 @@ public:
 protected:
     HardwareSerial* telitPort;  // Telit serial interface
     HardwareSerial* debugPort;  // Pointer so it can default to null
-    char data[BUF_SIZE];  // Response data from Telit
+    char data[BASE_BUF_SIZE];  // Response data from Telit
     uint32_t recDataSize;  // Size of response data from Telit
     char* parsedData;  // Parsed response data
     bool bufferFull;

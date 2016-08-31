@@ -37,22 +37,22 @@ LTEHttp::LTEHttp(HardwareSerial* tp, HardwareSerial* dp) : LTEBase::LTEBase(tp, 
  *  @return bool      True on Success
  */
 bool LTEHttp::init(uint32_t lte_band, char* apn) {
+    if (!LTEBase::init(lte_band)) return false;
     char cmd[40];
     sprintf(cmd, "AT#SGACT=%d,0", DEFAULT_CID);
     sendATCommand(cmd);
-    receiveData();
+    receiveData(2000,1000);
 
     // Change this line
-    //sprintf(cmd, "AT+CGDCONT=%d,\"IP\",\"vzwinternet\",\"\",0,0", DEFAULT_CID);
-    //if (!getCommandOK(cmd)) return false;
+    sprintf(cmd, "AT+CGDCONT=%d,\"IP\",\"vzwinternet\",\"\",0,0", DEFAULT_CID);
+    if (!getCommandOK(cmd)) return false;
     
     sprintf(cmd, "AT#SGACT=%d,1", DEFAULT_CID);
-    getCommandOK(cmd);
-debugPort->write("AT#SGACT=3,1 response \r\n");
-debugPort->write(getData());
-    //if (!getCommandOK(cmd)) return false;
-
-    return LTEBase::init(lte_band);
+    sendATCommand(cmd);
+    receiveData(2000,1000);
+    if (!parseFind("OK")) return false;
+    
+    return true;
 }
 
 
@@ -72,7 +72,7 @@ debugPort->write(getData());
  *  @param  conn_timeo          Socket times out if it can't establish a connection
  *                              in this period of time. Measured in hundreds of
  *                              milliseconds. Range is 10-1200.
- *  @return                     Boolean on success.
+ *  @return bool                True on success.
  */
 bool LTEHttp::socketOpen(char* r_ip, int r_port, int conn_id, int pkt_size,
                          int inactivity_timeo, int conn_timeo) {
@@ -98,27 +98,23 @@ bool LTEHttp::socketOpen(char* r_ip, int r_port, int conn_id, int pkt_size,
     // Activate PDP context
     memset(cmd, '\0', 64);
     sprintf(cmd, "AT#SGACT=%d,0", cid);
-    getCommandOK(cmd);    
+    getCommandOK(cmd);
     memset(cmd, '\0', 64);
     sprintf(cmd, "AT#SGACT=%d,1", cid);
-    if (!sendATCommand(cmd) || !receiveData(10000)) return false;
+    if (!sendATCommand(cmd) || !receiveData(10000,2000)) return false;
     
     // Get self IP from PDP context
     if (!parseFind("#SGACT: ")) memset(hostIP, '\0', 40);
     else {
-        char* temp = getParsedData();
-        if (strstr(temp, ",") == NULL) {
-            strncpy(hostIP, temp, strlen(temp));
-        }
-        else strncpy(hostIP, temp, strstr(temp, ",") - temp);
+        strncpy(hostIP, getParsedData(), strlen(getParsedData()));
+        hostIP[strlen(getParsedData())] = '\0';
     }
 
     // Open socket
     memset(cmd, '\0', 64);
     sprintf(cmd, "AT#SD=%d,0,%d,%s,255,0,1", connectionID, remotePort, r_ip);
-    if (!sendATCommand(cmd) || !receiveData(10000) || !parseFind("OK")) return false;
-    //if (!sendATCommand(cmd) || !receiveData(10000) || !parseFind("CONNECT")) return false;
-debugPort->write(getData());
+    if (!sendATCommand(cmd) || !receiveData(10000,1000) || !parseFind("OK")) return false;
+
     socketStatus = getSocketStatus();
     return true;
 }
@@ -151,7 +147,7 @@ bool LTEHttp::socketReady() {
 int LTEHttp::getSocketStatus() {
     getCommandOK("AT#SS");
     char match[8];
-    sprintf(match, "#SS: %d", connectionID);
+    sprintf(match, "#SS: %d,", connectionID);
     if (parseFind(match)) {
         socketStatus = (getParsedData())[0] - '0';
         return socketStatus;
@@ -163,79 +159,121 @@ int LTEHttp::getSocketStatus() {
 /** Wrapper function for writing to the Telit serial port.
  *
  *  @param  str     String to write.
- *  @return	int     Number of bytes written.
+ *  @return	int     Number of bytes written. -1 is error.
  */
 int LTEHttp::socketWrite(char* str) {
-    if (!socketReady()) return -1;
+    if (!socketReady()) return -1;  // Socket not available
     
     char cmd[16];
     sprintf(cmd, "AT#SSEND=%d", connectionID);
     sendATCommand(cmd);
-    receiveData();
-    if (!parseFind(">")) return -1;
+    receiveData(5000,500);
+    if (!parseFind(">"))
+        return -1;  // Timeout, AT#SSEND did not have expected response
 
     telitPort->write(str);
-    telitPort->write("\r\n\r\n");
-    receiveData();
-
+    telitPort->write((char) 26);  // End AT#SSEND
+    receiveData(500);
+    
     if (parseFind("OK")) return strlen(str);
     else return -1;
 }
 
 
-// TODO: right now it just copies to a bigger buffer
-// maybe should just output to the debug port?
+/** TODO: Right now there exists a problem where, if the base buffer is much smaller than the MAX_SRECV_SIZE, then we lose data (we cannot receive from the Telit Serial quickly enough). Go debug this later if you have time
+ * 
+ */
 int LTEHttp::socketReceive() {
     if (receiveBuf != NULL) {
         free(receiveBuf);
         receiveBuf = NULL;
     }
-
-    receiveBuf = (char*) malloc(1500 * sizeof(char));
+    
+    int currentBufSize = MAX_SRECV_SIZE;
+    receiveBuf = (char*) malloc(currentBufSize * sizeof(char));
 
     int totalBytesReceived = 0;
-    int currentReceived = 0;
     char cmd[16];
-    sprintf(cmd, "AT#SRECV=%d,1500", cid);
-    char find[16];
-    sprintf(cmd, "#SRECV: %d,", cid);
-    while (true) {
-        if (!sendATCommand(cmd) || !receiveData() || !parseFind(find)) break;
-debugPort->write(getData());
-        char* b = strsep(&parsedData, "\r\n");
-        currentReceived += atoi(b);
-debugPort->write(parsedData);
+    sprintf(cmd, "AT#SRECV=%d,%d", connectionID, MAX_SRECV_SIZE);
+    char tofind[16];
+    sprintf(tofind, "#SRECV: %d,", connectionID);
 
-        // transfer bytes
-        
-        while (bufferFull) {
-            receiveData();
+    // Loop AT#SRECV until all http packets read
+    while (true) {
+        if (!sendATCommand(cmd) || !receiveData(10000,500) || !parseFind(tofind)) break;
+
+        int recPacketSize = (atoi(strsep(&parsedData, "\r\n")));
+        int packetBytesLeft = recPacketSize;
+        parsedData[-1] = '\r';
+        parsedData += 1;  // points to char after "\n" 
+
+        // realloc more space if needed; leave room for terminating null byte
+        if (totalBytesReceived + recPacketSize >= currentBufSize - 1) {
+            realloc(receiveBuf, currentBufSize*2);
         }
-        totalBytesReceived += currentReceived;
+
+        // In case the internal LTE_Base buffer is smaller than our HTTP Packet receive size,
+        // we need to ask the Base to read multiple times to process the entire AT#SRECV response
+        if ((BASE_BUF_SIZE - (parsedData - data)) >= recPacketSize) {
+            memcpy(receiveBuf + totalBytesReceived, parsedData, recPacketSize);
+            totalBytesReceived += recPacketSize;
+            packetBytesLeft -= recPacketSize;
+        }
+        else {
+            memcpy(receiveBuf + totalBytesReceived, parsedData, (BASE_BUF_SIZE - (parsedData - data)));
+            totalBytesReceived += (BASE_BUF_SIZE - (parsedData - data));
+            packetBytesLeft -= (BASE_BUF_SIZE - (parsedData - data));
+
+            while (packetBytesLeft > 0) {
+                if (!receiveData(500,100)) return -1;
+                
+                if (packetBytesLeft > BASE_BUF_SIZE) {
+                    memcpy(receiveBuf + totalBytesReceived, data, recDataSize);
+                    totalBytesReceived += recDataSize;
+                    packetBytesLeft -= recDataSize;
+                }
+                else {
+                    memcpy(receiveBuf + totalBytesReceived, data, packetBytesLeft);
+                    totalBytesReceived += packetBytesLeft;
+                    packetBytesLeft = 0;
+                }
+            }
+        }
     }
+    receiveBuf[totalBytesReceived] = '\0';
 
     return totalBytesReceived;
 }
 
 
-/** Self explanatory.
+/** Closes socket and closes PDP context.
  *
  *  @return	bool	True on success.
  */
 bool LTEHttp::socketClose() {
-    getCommandOK("AT#SH");
+    char cmd[40];
+    sprintf(cmd, "AT#SH=%d", connectionID);
+    getCommandOK(cmd);
+    memset(cmd, '\0', 40);
+    sprintf(cmd, "AT#SGACT=%d,0", cid);
+    getCommandOK(cmd);
     if (getSocketStatus() == 0) return true;
-    return true;
+    return false;
 }
 
-/** Connects to the GPRS network.
+/** Connects to the GPRS network. If already connected,
+ *  returns true.
  * 
  *  @return bool  True on success
  */
 bool LTEHttp::gprsAttach() {
     getCommandOK("AT+CGATT?");
-    if (!parseFind("1")) return getCommandOK("AT+CGATT=1");
-    return false;
+    if (!parseFind("1")) {
+        sendATCommand("AT+CGATT=1");
+        receiveData(2000,1000);
+        return parseFind("OK");
+    }
+    return true;
 }
 
 /** Resets private variables to their default values.

@@ -39,11 +39,14 @@
 #define DEFAULT_CID     3 // This should not be changed.
 #define RECV_BUF_SIZE   10000
 #define DEFAULT_APN     "vzwinternet"
+#define MAX_SRECV_SIZE  1500  // This should not be changed. Must be between 1-1500
 
 class LTEHttp : public LTEBase {
 public:
     LTEHttp(HardwareSerial* telitPort, HardwareSerial* debugPort = NULL);
     virtual bool init(uint32_t lte_band, char* apn = DEFAULT_APN);
+
+    char* receivedData() { return (receiveBuf == NULL) ? (char*) "" : receiveBuf; }
 
     // TCP/IP stack
     bool socketOpen(char* r_ip, int r_port = 80, int conn_id = DEFAULT_CONN_ID, int packet_size = 300, int inactivity_timeout = 180, int connection_timeout = 600);
@@ -65,7 +68,7 @@ public:
     bool setSSL(bool ssl);
     bool gprsAttach();
 
-protected:
+private:
     int connectionID;
     int cid;
 

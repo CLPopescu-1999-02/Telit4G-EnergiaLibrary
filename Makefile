@@ -92,11 +92,11 @@ gtest_main.a : gtest-all.o gtest_main.o
 #sample1_unittest : sample1.o sample1_unittest.o gtest_main.a
 #	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -lpthread $^ -o $@
 
-LTEBase.o : $(USER_DIR)/src/LTEBase.cpp $(USER_DIR)/src/LTEBase.h $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/src/LTEBase.cpp
+LTE_Base.o : $(USER_DIR)/src/LTE_Base.cpp $(USER_DIR)/src/LTE_Base.h $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/src/LTE_Base.cpp
 
-LTEHttp.o : $(USER_DIR)/src/LTEHttp.cpp $(USER_DIR)/src/LTEHttp.h $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/src/LTEHttp.cpp
+LTE_TCP.o : $(USER_DIR)/src/LTE_TCP.cpp $(USER_DIR)/src/LTE_TCP.h $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/src/LTE_TCP.cpp
 
 unit_test.o : $(USER_DIR)/test/unit_test.cpp \
 			  $(SRC_HEADERS) $(GTEST_HEADERS)
@@ -105,5 +105,5 @@ unit_test.o : $(USER_DIR)/test/unit_test.cpp \
 MockSerial.o : $(USER_DIR)/test/MockSerial.cpp $(USER_DIR)/test/MockSerial.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/test/MockSerial.cpp
 
-unit_test : LTEBase.o LTEHttp.o unit_test.o MockSerial.o gtest.a
+unit_test : LTE_Base.o LTE_TCP.o unit_test.o MockSerial.o gtest.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -lpthread $^ -o $@

@@ -1,8 +1,8 @@
 #include <stdio.h>
 
 #include "gtest/gtest.h"
-#include "LTEBase.h"
-#include "LTEHttp.h"
+#include "LTE_Base.h"
+#include "LTE_TCP.h"
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
@@ -21,7 +21,7 @@ TEST(BaseTest, TelitCommunication) {
     telit_serial.begin(9600);
     debug_serial.begin(9600);
     initmillis();
-    LTEBase base(&telit_serial, &debug_serial);
+    LTE_Base base(&telit_serial, &debug_serial);
     
     // TESTS
     // receiveData()
@@ -57,7 +57,7 @@ TEST(BaseTest, GetData) {
     telit_serial.begin(9600);
     debug_serial.begin(9600);
     initmillis();
-    LTEBase base(&telit_serial, &debug_serial);
+    LTE_Base base(&telit_serial, &debug_serial);
 
     // TESTS
     // getData()
@@ -80,7 +80,7 @@ TEST(BaseTest, ParseData) {
     telit_serial.begin(9600);
     debug_serial.begin(9600);
     initmillis();
-    LTEBase base(&telit_serial, &debug_serial);
+    LTE_Base base(&telit_serial, &debug_serial);
 
     // TESTS
     // parseFind()
@@ -134,7 +134,7 @@ TEST(HttpTest, OpenSocket) {
     telit_serial.begin(9600);
     debug_serial.begin(9600);
     initmillis();
-    LTEHttp http(&telit_serial, &debug_serial);
+    LTE_TCP http(&telit_serial, &debug_serial);
     http.init(4);
 
     // TESTS

@@ -1,11 +1,11 @@
 #include <Energia.h>
-#include "LTEHttp.h"
+#include "LTE_TCP.h"
 
 // Define UART pins between boosterpack and launchpad
 #define LTE_SERIAL Serial1
 
-// Initialize LTEHttp object
-LTEHttp lte(&LTE_SERIAL, &Serial);
+// Initialize LTE_TCP object
+LTE_TCP lte(&LTE_SERIAL, &Serial);
 
 void setup()
 {
@@ -17,7 +17,7 @@ void setup()
   pinMode(14, OUTPUT);
   digitalWrite(14, 0);
 
-  delay(5000);
+  delay(2000);
 
   // Initialize LTE Http object
   Serial.println("Initializing...");
@@ -41,22 +41,22 @@ void loop()
   //  socket, form an HTTP request, send it over the TCP socket,  //
   //  and read any responses.                                     //
   //                                                              //
-  //  The website we're querying is www.httpbin.org, and can be   //
-  //  used to test HTTP clients. This specific GET request asks   //
-  //  for our own IP address.                                     //
+  //  The website we're querying is www.energia.nu, and the       //
+  //  resource is /hello. This page returns a basic website with  //
+  //  the text "Hello, World."                                    //
   //                                                              //
   //////////////////////////////////////////////////////////////////
   
   // Open TCP connection
   Serial.println("Opening TCP socket ...");
-  if (!lte.socketOpen("www.httpbin.org")) {
+  if (!lte.socketOpen("www.energia.nu")) {
     Serial.println("Failed to open TCP socket.\r\n");
   }
   else {
-    Serial.println("... Success! Opened TCP connection to \"www.httpbin.org\".\r\n");
+    Serial.println("... Success! Opened TCP connection to \"www.energia.nu\".\r\n");
     
     // Form an HTTP packet
-    char* httpPacket = "GET /ip HTTP/1.1\r\nHost: www.httpbin.org\r\nConnection: close\r\n\r\n";
+    char* httpPacket = "GET /hello HTTP/1.1\r\nHost: www.energia.nu\r\nConnection: close\r\n\r\n";
     Serial.print("HTTP Packet to send:\r\n");
     Serial.println(httpPacket);
     Serial.println("");
@@ -70,7 +70,7 @@ void loop()
     }
 
     // Wait for a response
-    delay(5000);
+    delay(2000);
 
     // Receive a response
     Serial.println("Attempting to receive response ...");

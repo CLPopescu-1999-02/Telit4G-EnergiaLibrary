@@ -1,19 +1,13 @@
 /*
  * Copyright (c) 2016 by Wenlong Xiong <wenlongx@ucla.edu>
- * 4G/LTE Library for Telit LE910SV module and Energia.
- *
- *
- * This file is free software; you can redistribute it and/or modify
- * it under the terms of either the GNU General Public License version 2
- * or the GNU Lesser General Public License version 2.1, both as
- * published by the Free Software Foundation.
+ * Serial AT Command Library for Telit LE910SV module and Energia.
  */
 
 
 #ifndef LTE_LTE_BASE_
 #define LTE_LTE_BASE_
 
-#include "LTEBase.h"
+#include "LTE_Base.h"
 
 
 /** LTE Base class constructor.
@@ -21,7 +15,7 @@
  *  @param  tp  Telit Serial port pointer.
  *  @param  dp  Debug Serial port pointer.
  */
-LTEBase::LTEBase(HardwareSerial* tp, HardwareSerial* dp) {
+LTE_Base::LTE_Base(HardwareSerial* tp, HardwareSerial* dp) {
     telitPort = tp;
     debugPort = dp;
     memset(data, '\0', BASE_BUF_SIZE);
@@ -29,24 +23,27 @@ LTEBase::LTEBase(HardwareSerial* tp, HardwareSerial* dp) {
     bufferFull = false;
 }
 
-
-// TODO: test
 /** Sets up initial settings, and selects frequency band that Telit
  *  uses to communicate.
  *
  *  @param  lte_band    Frequency band used by Telit.
  *  @return bool        True on success.
  */
-bool LTEBase::init(uint32_t lte_band) {
+bool LTE_Base::init(uint32_t lte_band) {
     #ifdef DEBUG
     debugPort->write("Initializing ...\r\n");
     #endif
 
-    if (!getCommandOK("ATE0")) return false;  // No command echo
-    if (!getCommandOK("ATV1")) return false;  // Verbose response
-    if (!getCommandOK("AT+IPR=115200")) return false;  // Baud rate
-    if (!getCommandOK("AT+CMEE=2")) return false;  // Verbose error reports
-    if (!getCommandOK("AT+CGATT=1")) return false;  // GPRS attach  
+    if (!getCommandOK("ATE0"))          // No command echo
+        return false;
+    if (!getCommandOK("ATV1"))          // Verbose response from modem
+        return false;
+    if (!getCommandOK("AT+IPR=115200")) // Baud rate for Serial communication
+        return false;
+    if (!getCommandOK("AT+CMEE=2"))     // Verbose error reports
+        return false;
+    if (!getCommandOK("AT+CGATT=1"))    // GPRS network attached
+        return false;
 
     /* If you are using a 2G/3G capable device, you would change
      * The arguments here to include your GSM and UMTS bands. The Telit
@@ -57,21 +54,20 @@ bool LTEBase::init(uint32_t lte_band) {
      * Refer to the Telit AT-command guide to determine the correct values.
      * For LTE, given LTE Band n, the argument passed in is 2 exp(n - 1). For
      * example, LTE band 13 would need us to pass in 2^(13-1) = 4096.
-     * */
-    char* band = "AT#BND=0,0,8"; // No GSM/UMTS, LTE Band 4
-    if (!getCommandOK(band)) return false;
+     */
+    char* band = "AT#BND=0,0,8";        // No GSM/UMTS, LTE Band 4
+    if (!getCommandOK(band))
+        return false;
 
     return true;
 }
 
-
 /** Sends an AT command to the Telit module.
  *
  *  @param  cmd   String containing AT command to send.
- *  @return bool  False if empty string.
+ *  @return bool  True on success.
  */
-bool LTEBase::sendATCommand(const char* cmd) {
-    // Invalid arguments
+bool LTE_Base::sendATCommand(const char* cmd) {
     if ((cmd == NULL) || (cmd[0] == '\0') || (bufferFull)) return false;
 
     #ifdef DEBUG
@@ -86,18 +82,16 @@ bool LTEBase::sendATCommand(const char* cmd) {
     return true;
 }
 
-
-/** Listens to the serial port for data from the Telit module and captures
- *  it in the char* data field. Returns false if no data is received before
+/** Listens on the serial port for data from the Telit module and captures
+ *  it in the data[] buffer. Returns false if no data is received before
  *  function times out.
  *
- *  @param  timeout     Max time (in millis) we wait for Telit to initiate
+ *  @param  timeout     Max wait time (in millis) for modem to initiate
  *                      communication.
- *  @param  baudDelay   Max wait between data received.
+ *  @param  baudDelay   Max wait time between bytes received.
  *  @return bool
  */
-bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
-    // Invalid inputs
+bool LTE_Base::receiveData(uint32_t timeout, uint32_t baudDelay) {
     if ((timeout == 0) || (baudDelay == 0)) return false;
 
     // Block while waiting for the start of the message
@@ -124,8 +118,9 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
         }
 
         // Store next byte
+        // Ignore initial whitespace
         char c = (char) telitPort->read();
-        if (!((receivedSize == 0) && ((c == '\0') || (c == '\r') || (c == '\n')))) {
+        if ((receivedSize != 0) || (c != '\0') && (c != '\r') && (c != '\n')) {
             data[receivedSize] = c;
             receivedSize++;
         }
@@ -153,23 +148,21 @@ bool LTEBase::receiveData(uint32_t timeout, uint32_t baudDelay) {
     return true;
 }
 
-
-/** Gets stored data that we read from Telit's Serial port. If no data
- *  exists, then return an empty string.
+/** Retrieves stored data we received previously. If no data exists, return
+ *  empty string.
  *
- *  @return char*   Data received from Telit.
+ *  @return char*
  */
-char* LTEBase::getData() {
+char* LTE_Base::getData() {
     return data;
 }
-
 
 /** Returns a pointer to the start of the substring found by parseFind().
  *  If parseFind found no matching string, returns empty string.
  *
  *  @return char*   Substring of interest, or empty string.
  */
-char* LTEBase::getParsedData() {
+char* LTE_Base::getParsedData() {
     return parsedData;
 }
 
@@ -177,46 +170,40 @@ char* LTEBase::getParsedData() {
  *
  *  @return void
  */
-void LTEBase::clearData() {
+void LTE_Base::clearData() {
     memset(data, '\0', BASE_BUF_SIZE);
     parsedData = NULL;
     recDataSize = 0;
 }
 
-
-/** Finds first instance of substring stringToFind in the
- *  response data from Telit, and stores the the rest of the
- *  response data starting from AFTER stringToFind in the
- *  parsedData field. If no matching substring is found,
- *  empty string is stored instead. Empty string always
- *  returns false.
+/** Finds first instance of substring "stringToFind" in the response data from
+ *  the modem, and stores the the rest of the response data starting from
+ *  AFTER "stringToFind" in the parsedData field. If no matching substring is
+ *  found, empty string is stored instead. If "stringToFind" is empty string,
+ *  function returns false.
  *
  *  @param  stringToFind    String of interest.
  *  @return bool            True if substring is found.
  */
-bool LTEBase::parseFind(const char* stringToFind) {
-    if ((stringToFind == NULL) || 
-        (stringToFind[0] == '\0') || (data[0] == '\0'))
+bool LTE_Base::parseFind(const char* stringToFind) {
+    if ((stringToFind == NULL) || (stringToFind[0] == '\0') ||
+        (data[0] == '\0'))
         return false;
 	
-    // TODO:
     char* beginning = strstr(data, stringToFind);
     if (beginning == NULL) return false;
     parsedData = beginning + strlen(stringToFind);
     return true;
 }
 
-
-// TODO: test
-/** Sends an AT Command, listens for a response, and looks for an
- *  "OK" code in the response. If an "OK" is received, this function
- *  returns true, otherwise it returns false.
+/** Sends an AT Command, listens for a response, and looks for an "OK" code in
+ *  the response data. If an "OK" is received, this function returns true.
  *
  *  @param  command     String containing AT Command.
  *  @return bool        True if OK is received.
  */
-bool LTEBase::getCommandOK(const char* command) {
-    if (!sendATCommand(command) || !receiveData(4000, 500)) return false;
+bool LTE_Base::getCommandOK(const char* command) {
+    if (!sendATCommand(command) || !receiveData(500, 100)) return false;
     if (parseFind("OK\r\n")) {
         return true;
     } else {
@@ -224,13 +211,12 @@ bool LTEBase::getCommandOK(const char* command) {
     }
 }
 
-// TODO: check
 /** Prints to debug interface the manufacturer ID, model ID, revision ID,
  *  product serial number ID, and internal mobile subscriber identity.
  *
  *  @return void
  */
-void LTEBase::printRegistration() {
+void LTE_Base::printRegistration() {
     #ifdef DEBUG
     debugPort->write("Printing registration information ...\r\n");
     #endif
@@ -262,13 +248,11 @@ void LTEBase::printRegistration() {
     }
 }
 
-
-// TODO: test
-/** Determines if the modem is connected to the cell network.
+/** Determines if the modem is connected to the GPRS network.
  *
  *  @return bool    True if modem is connected.
  */
-bool LTEBase::isConnected() {
+bool LTE_Base::isConnected() {
     if (getCommandOK("AT+CGATT?") && parseFind("+CGATT: 1"))
 		return true;
     return false;

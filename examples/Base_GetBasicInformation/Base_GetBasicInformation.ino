@@ -1,11 +1,11 @@
 #include <Energia.h>
-#include "LTEBase.h"
+#include "LTE_Base.h"
 
 // Define UART pins between boosterpack and launchpad
 #define LTE_SERIAL Serial1
 
-// Initialize LTEBase object
-LTEBase base(&LTE_SERIAL, &Serial);
+// Initialize LTE_Base object
+LTE_Base base(&LTE_SERIAL, &Serial);
 
 void setup()
 {

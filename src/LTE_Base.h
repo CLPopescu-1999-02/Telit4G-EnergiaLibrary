@@ -32,19 +32,11 @@
 
 // Uncomment this to enable debugging messages
 //#define DEBUG
-// Uncomment this to enable unit testing
-//#define UNIT_TEST
 
-#ifdef UNIT_TEST
-#include "../test/MockEnergia.h"
-#else
 #include <Energia.h>
-#endif
-
 
 #include <stdlib.h>
 #include <string.h>
-
 
 #define BASE_BUF_SIZE 2000
 

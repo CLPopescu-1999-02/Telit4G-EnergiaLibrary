@@ -20,7 +20,6 @@
  
 // COPY YOUR OPEN WEATHER MAP API KEY AND CITY HERE:
 #define OWM_API_KEY "f2b7da34048eb1f7ca08d685b30ba314"
-//#define OWM_API_KEY "some key"
 #define HOME_CITY "Dallas"
 
 // Define UART pins between boosterpack and launchpad
@@ -93,7 +92,7 @@ void loop()
         if (city != NULL && weather != NULL) {
           Serial.print("The weather in ");
           Serial.print(city->valuestring);
-          Serial.println(" is:");
+          Serial.print(" is: ");
 
           aJsonObject* arrayptr = weather->child;
           while(arrayptr != NULL) {
@@ -101,21 +100,23 @@ void loop()
             if (arrayptr->next != NULL) Serial.print(", ");
             arrayptr = arrayptr->next;
           }
-
-          Serial.print("The temperature is:");
+          Serial.println("");
+          
+          Serial.print("The temperature is: ");
           aJsonObject* main = aJson.getObjectItem(owm_json, "main");
           Serial.print(((double)(aJson.getObjectItem(main, "temp")->valuefloat) * (9/(double)5)) - 459.67);
-          Serial.println(" degrees Fahrenheit");
+          Serial.println(" degrees Fahrenheit.");
         }
       } else Serial.println("Error.");
     }
 
     // Closing socket
-    if (!lte.socketClose()) {
+    while(!lte.socketClose()) {
       Serial.println("... Failed to close TCP socket.\r\n");
+      delay(200);
     }
   }
 
   Serial.println("\r\n");
-  delay(10000);
+  delay(5000);
 }

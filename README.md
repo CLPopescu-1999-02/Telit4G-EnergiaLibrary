@@ -4,42 +4,26 @@ Texas Instruments Energia Library for the Telit EVK4 BoosterPack containing the 
 The general structure of the library is like this:
 
 ```
-Makefile
-README.md
 src/
-  |-- LTEBase
+  |-- LTE_Base
   |     * Defines serial communication with Telit module
   |     * Interface to send/receive AT commands
-  |-- LTEHttp
-  |     * Defines an HTTP client/server class
-  |     * Abstracts AT commands into GET/POST/PUT/DELETE requests
-  |     * Buffer for persistent GET data
+  |-- LTE_TCP
+  |     * Defines a TCP connection class
+  |     * Connect to a socket and send/receive information
+  |     * Buffer for persistent receive data
   |
-  |-- LTEVoip & LTESmtp
-  |     * not yet implemented
-test/
-  |-- googletest/
-  |     * Google Test library
-  |
-  |-- unit_test.cpp
-  |     * Test cases for LTEBase (currently writing more)
-  |-- MockSerial
-  |     * Emulates the Serial.h library in Energia
-  |-- MockEnergia
-        * Provides basic functions the Energia IDE contains
+libraries/
+  |-- I2CBitBang/
+  |-- I2CWireLib/
+  |-- StLps25h/
+  |-- StLsm6ds3/
+  |-- TiHdc1050/
+examples/
 ```
 
-The user can use the LTEBase/LTEHttp classes to communicate with the Telit BoosterPack. The LTEHttp class abstracts the communication for a simple HTTP server/client. The user can also use the LTEBase class to define his own custom functions (using the sendATCommand() to send AT messages and receive responses).
+The user can use the LTE_Base/LTE_TCP classes to communicate with the Telit BoosterPack. The LTE_TCP class lets users send/receive data over a TCP socket. The user can also use the LTE_Base class to define his own custom functions (using the sendATCommand() to send AT messages and receive responses from the modem).
 
-(For me)
-I'm testing this library as I'm writing it, so I'm using the Google Test library along with two custom ones that emulate Energia and Serial communcation. You can run the test cases by running the following command:
-```
-make clean
-make all
-./unit_test
-```
-Or run a specific test (listed in unit_test.cpp) with the command:
-```
-./unit_test --gtest_filter=TESTGROUP.*
-./unit_test --gtest_filter=*.TESTCASE
-```
+Check out the examples/ folder to get started with this library. There you can find use cases for both LTE_Base and LTE_TCP classes. For more details about specific funtions, docstrings are included in the source code.
+
+The Telit EVK4 comes with several on-board sensors. The libraries for these are under the library/ folder.

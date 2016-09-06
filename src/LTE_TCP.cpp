@@ -39,15 +39,14 @@ bool LTE_TCP::init(uint32_t lte_band, char* apn) {
     receiveData(5000, 100);
 
     sprintf(cmd, "AT+CGDCONT=%d,\"IP\",%s,\"\",0,0", DEFAULT_CID, DEFAULT_APN);
-    if (!getCommandOK(cmd))
+    if (!sendATCommand(cmd) || !receiveData(2000,500) || !parseFind("OK"))
         return false;
-    
+
     sprintf(cmd, "AT#SGACT=%d,1", DEFAULT_CID);
     sendATCommand(cmd);
     receiveData(5000, 100);
     if (!parseFind("OK"))
         return false;
-    
     return true;
 }
 
@@ -195,7 +194,6 @@ int LTE_TCP::socketReceive() {
         return -1;
 
     if (receiveBuf != NULL) {
-        free(receiveBuf);
         receiveBuf = NULL;
     }
     
@@ -237,10 +235,11 @@ int LTE_TCP::socketReceive() {
                    (BASE_BUF_SIZE - (parsedData - data)));
             totalBytesReceived += (BASE_BUF_SIZE - (parsedData - data));
             packetBytesLeft -= (BASE_BUF_SIZE - (parsedData - data));
-
+            
             while (packetBytesLeft > 0) {
-                if (!receiveData(500, 100))
+                if (!receiveData(500, 100)) {
                     return -1;
+                }
                 
                 if (packetBytesLeft > BASE_BUF_SIZE) {
                     memcpy(receiveBuf + totalBytesReceived, data, recDataSize);
@@ -265,10 +264,10 @@ int LTE_TCP::socketReceive() {
  *  @return	bool	True on success.
  */
 bool LTE_TCP::socketClose() {
-    char cmd[16];
+    char cmd[20];
     sprintf(cmd, "AT#SH=%d", connectionID);
     getCommandOK(cmd);
-    memset(cmd, '\0', 40);
+    memset(cmd, '\0', 20);
     sprintf(cmd, "AT#SGACT=%d,0", cid);
     getCommandOK(cmd);
     if (getSocketStatus() == 0)

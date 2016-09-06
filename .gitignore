@@ -3,9 +3,10 @@
 
 # Test files
 src/src.ino
-test/*
+test/
 Makefile
-backup/*
+backup/
+CMakeLists.txt
 
 # Windows image file caches
 Thumbs.db

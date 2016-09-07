@@ -21,6 +21,9 @@
  */
 LTE_TCP::LTE_TCP(HardwareSerial* tp, HardwareSerial* dp)
                     : LTE_Base::LTE_Base(tp, dp) {
+    #ifdef DEBUG
+    debugPort->write(">> Constructing LTE_TCP object ...\r\n");
+    #endif
     reset();
 }
 
@@ -33,20 +36,38 @@ LTE_TCP::LTE_TCP(HardwareSerial* tp, HardwareSerial* dp)
 bool LTE_TCP::init(uint32_t lte_band, char* apn) {
     if (!LTE_Base::init(lte_band))
         return false;
+
     char cmd[40];
     sprintf(cmd, "AT#SGACT=%d,0", DEFAULT_CID);
     sendATCommand(cmd);
     receiveData(5000, 100);
 
-    sprintf(cmd, "AT+CGDCONT=%d,\"IP\",%s,\"\",0,0", DEFAULT_CID, DEFAULT_APN);
-    if (!sendATCommand(cmd) || !receiveData(2000,500) || !parseFind("OK"))
+    #ifdef DEBUG
+    debugPort->write(">> Setting PDP Context parameters ...\r\n");
+    #endif
+
+    sprintf(cmd, "AT+CGDCONT=%d,\"IP\",%s,\"\",0,0",
+            DEFAULT_CID, DEFAULT_APN);
+    if (!sendATCommand(cmd) || !receiveData(2000,500) || !parseFind("OK")) {
+        #ifdef DEBUG
+        debugPort->write(">> ... Setting PDP Context params failed\r\n");
+        #endif
         return false;
+    }
+
+    #ifdef DEBUG
+    debugPort->write(">> Activating PDP Context ...\r\n");
+    #endif
 
     sprintf(cmd, "AT#SGACT=%d,1", DEFAULT_CID);
     sendATCommand(cmd);
     receiveData(5000, 100);
-    if (!parseFind("OK"))
+    if (!parseFind("OK")) {
+        #ifdef DEBUG
+        debugPort->write(">> ... Activating PDP Context failed\r\n");
+        #endif
         return false;
+    }
     return true;
 }
 
@@ -56,7 +77,7 @@ bool LTE_TCP::init(uint32_t lte_band, char* apn) {
  *  application act as both a server/client), you must open other sockets
  *  on different conenction ID's.
  *
- *  @param  r_ip                Remote IP address (in form "xxx.xxx.xxx.xxx")
+ *  @param  r_ip                Remote IP addr (in form "xxx.xxx.xxx.xxx")
  *  @param  r_port              Remote port. Default is 80.
  *  @param  conn_id             TCP socket ID. LE910 has the connection IDs
  *                              (1-6). Default is 1.
@@ -64,7 +85,7 @@ bool LTE_TCP::init(uint32_t lte_band, char* apn) {
  *  @param  inactivity_timeo    Socket times out after there is no data
  *                              exchange for this period of time (seconds).
  *  @param  conn_timeo          Socket times out if it can't establish a
- *                              connection in this period of time (hundreds of
+ *                              connection in this period (hundreds of
  *                              milliseconds). Range is 10-1200.
  *  @return bool                True on success.
  */
@@ -74,21 +95,33 @@ bool LTE_TCP::socketOpen(char* r_ip, int r_port, int conn_id, int pkt_size,
         (r_port < 1) || (r_port > 65535) || (conn_id < 1) ||
         (conn_id > 6) || (pkt_size <= 0) || (pkt_size > 1500) ||
         (inactivity_timeo < 0) || (inactivity_timeo > 65535) ||
-        (conn_timeo < 10) || (conn_timeo > 1200))
+        (conn_timeo < 10) || (conn_timeo > 1200)) {
+        #ifdef DEBUG
+        debugPort->write(">> Socket failed to open. Invalid params\r\n");
+        #endif
         return false;
+    }
 
     strncpy(remoteIP, r_ip, strlen(r_ip));
     remotePort = r_port;
 
-    if (!gprsAttach())
+    if (!gprsAttach()) {
+        #ifdef DEBUG
+        debugPort->write(">> GPRS attach failed when opening socket\r\n");
+        #endif
         return false;
+    }
 
     // Configures socket for specified socket connection ID, connection ID
     char cmd[320];
     sprintf(cmd, "AT#SCFG=%d,%d,%d,%d,%d,0",
             conn_id, cid, pkt_size, inactivity_timeo, conn_timeo);
-    if (!getCommandOK(cmd))
+    if (!getCommandOK(cmd)) {
+        #ifdef DEBUG
+        debugPort->write(">> Socket configuration failed\r\n");
+        #endif
         return false;
+    }
     
     // Activate PDP context
     memset(cmd, '\0', 320);
@@ -96,9 +129,13 @@ bool LTE_TCP::socketOpen(char* r_ip, int r_port, int conn_id, int pkt_size,
     getCommandOK(cmd);
     memset(cmd, '\0', 320);
     sprintf(cmd, "AT#SGACT=%d,1", cid);
-    if (!sendATCommand(cmd) || !receiveData(2000, 100))
+    if (!sendATCommand(cmd) || !receiveData(2000, 100)) {
+        #ifdef DEBUG
+        debugPort->write(">> PDP context failed when opening socket\r\n");
+        #endif
         return false;
-    
+    }
+
     // Get self IP from PDP context
     if (!parseFind("#SGACT: "))
         memset(hostIP, '\0', 40);
@@ -110,16 +147,19 @@ bool LTE_TCP::socketOpen(char* r_ip, int r_port, int conn_id, int pkt_size,
     // Open socket
     memset(cmd, '\0', 320);
     sprintf(cmd, "AT#SD=%d,0,%d,%s,255,0,1", connectionID, remotePort, r_ip);
-    if (!sendATCommand(cmd) || !receiveData(2000, 100) || !parseFind("OK"))
+    if (!getCommandOK(cmd) || !parseFind("OK")) {
+        #ifdef DEBUG
+        debugPort->write(">> Failed to open socket\r\n");
+        #endif
         return false;
-
+    }
     socketStatus = getSocketStatus();
     return true;
 }
 
 /** Returns true if socket is connected and ready to transmit data.
  *
- *  @return	bool
+ *  @return bool
  */
 bool LTE_TCP::socketReady() {
     int x = getSocketStatus();
@@ -129,17 +169,17 @@ bool LTE_TCP::socketReady() {
 /** Queries the state of the TCP/IP socket at the connection ID. Updates
  *  the private variable.
  *  Socket statuses:
- *  	0: Socket closed
- *  	1: Socket with active data transfer connection
- *  	2: Socket suspended
- *  	3: Socket suspended with pending data
- *  	4: Socket listening
- *  	5: Socket with incoming connection, waiting for
- *  	   user accept or shutdown command
- *  	6: Socket resolving DNS.
- *  	7: Socket connecting.
+ *      0: Socket closed
+ *      1: Socket with active data transfer connection
+ *      2: Socket suspended
+ *      3: Socket suspended with pending data
+ *      4: Socket listening
+ *      5: Socket with incoming connection, waiting for
+ *         user accept or shutdown command
+ *      6: Socket resolving DNS.
+ *      7: Socket connecting.
  *
- *  @return	int		Current socket state. -1 for error.
+ *  @return int     Current socket state. -1 for error.
  */
 int LTE_TCP::getSocketStatus() {
     getCommandOK("AT#SS");
@@ -147,6 +187,11 @@ int LTE_TCP::getSocketStatus() {
     sprintf(match, "#SS: %d,", connectionID);
     if (parseFind(match)) {
         socketStatus = (getParsedData())[0] - '0';
+        #ifdef DEBUG
+        debugPort->write(">> Socket status code: ")
+        debugPort->write(x);
+        debugPort->write("\r\n");
+        #endif
         return socketStatus;
     }
     else return -1;
@@ -156,18 +201,30 @@ int LTE_TCP::getSocketStatus() {
  *  of the AT#SSEND command.
  *
  *  @param  str     String to write.
- *  @return	int     Number of bytes written. -1 on error.
+ *  @return int     Number of bytes written. -1 on error.
  */
 int LTE_TCP::socketWrite(char* str) {
-    if (!socketReady())     // Socket not available
+    #ifdef DEBUG
+    debugPort->write(">> Writing to socket ...\r\n");
+    #endif
+
+    if (!socketReady()) {
+        #ifdef DEBUG
+        debugPort->write(">> Socket write failed, socket not ready\r\n");
+        #endif
         return -1;
-    
+    }
+
     char cmd[12];
     sprintf(cmd, "AT#SSEND=%d", connectionID);
     sendATCommand(cmd);
     receiveData(2000, 100);
-    if (!parseFind(">"))    // Timeout, AT#SSEND did not have expected response
-        return -1;
+    if (!parseFind(">")) {
+        #ifdef DEBUG
+        debugPort->write(">> Write failed, unexpected response from AT#SSEND");
+        #endif
+        return -1;  // Timeout, AT#SSEND did not have expected response
+    }
 
     telitPort->write(str);
     telitPort->write((char) 26);    // End AT#SSEND
@@ -182,16 +239,23 @@ int LTE_TCP::socketWrite(char* str) {
  *  buffer. If at any point there is an error, -1 is returned, and partially
  *  received data is saved. This function makes use of the AT#SRECV command.
  *
- *  TODO: There is a bug where if the buffer size of the LTE_Base class is much
- *  smaller than the AT#SRECV buffer, we lose some amount of data. Workaround
- *  is to have LTE_Base have a buffer larger than 1500 bytes (max bytes
- *  AT#SRECV can read at once).
+ *  TODO: There is a bug where if the buffer size of the LTE_Base class is
+ *  much smaller than the AT#SRECV buffer, we lose some amount of data.
+ *  Workaround is to have LTE_Base have a buffer larger than 1500 bytes
+ *  (max bytes AT#SRECV can read at once).
  * 
  *  @return int     Number of bytes received. -1 on error.
  */
 int LTE_TCP::socketReceive() {
-    if (socketStatus == 0)
+    #ifdef DEBUG
+    debugPort->write(">> Reading from socket ...\r\n");
+    #endif
+    if (socketStatus == 0) {
+        #ifdef DEBUG
+        debugPort->write(">> Socket receive failed, socket not ready\r\n");
+        #endif
         return -1;
+    }
 
     if (receiveBuf != NULL) {
         receiveBuf = NULL;
@@ -247,7 +311,8 @@ int LTE_TCP::socketReceive() {
                     packetBytesLeft -= recDataSize;
                 }
                 else {
-                    memcpy(receiveBuf + totalBytesReceived, data, packetBytesLeft);
+                    memcpy(receiveBuf + totalBytesReceived, data,
+                           packetBytesLeft);
                     totalBytesReceived += packetBytesLeft;
                     packetBytesLeft = 0;
                 }
@@ -261,7 +326,7 @@ int LTE_TCP::socketReceive() {
 
 /** Closes socket and closes PDP context.
  *
- *  @return	bool	True on success.
+ *  @return bool    True on success.
  */
 bool LTE_TCP::socketClose() {
     char cmd[20];
@@ -270,8 +335,13 @@ bool LTE_TCP::socketClose() {
     memset(cmd, '\0', 20);
     sprintf(cmd, "AT#SGACT=%d,0", cid);
     getCommandOK(cmd);
-    if (getSocketStatus() == 0)
+    if (getSocketStatus() == 0) {
+        debugPort->write(">> Socket closed.\r\n");
         return true;
+    }
+    #ifdef DEBUG
+    debugPort->write(">> Socket failed to close\r\n");
+    #endif
     return false;
 }
 
@@ -280,6 +350,10 @@ bool LTE_TCP::socketClose() {
  *  @return void
  */
 void LTE_TCP::reset() {
+    #ifdef DEBUG
+    debugPort->write(">> Reset all of LTE_TCP's private variables\r\n");
+    #endif
+
     connectionID = DEFAULT_CONN_ID;
     cid = DEFAULT_CID;
     memset(hostIP, '\0', 40);
@@ -299,6 +373,10 @@ void LTE_TCP::reset() {
  *  @return bool    True on success
  */
 bool LTE_TCP::gprsAttach() {
+    #ifdef DEBUG
+    debugPort->write(">> Attempting GPRS attach ...\r\n");
+    #endif
+
     getCommandOK("AT+CGATT?");
     if (!parseFind("1")) {
         return getCommandOK("AT+CGATT=1");
@@ -321,7 +399,12 @@ char* LTE_TCP::socketParseFind(const char* stringToFind) {
         return false;
   
     char* beginning = strstr(receiveBuf, stringToFind);
-    if (beginning == NULL) return NULL;
+    if (beginning == NULL) {
+        #ifdef DEBUG
+        debugPort->write(">> Socket parseFind string not found\r\n");
+        #endif
+        return NULL;
+    }
     return beginning + strlen(stringToFind);
 }
 

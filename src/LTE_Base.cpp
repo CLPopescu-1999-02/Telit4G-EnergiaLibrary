@@ -7,6 +7,7 @@
 #ifndef LTE_LTE_BASE_
 #define LTE_LTE_BASE_
 
+#include <math.h>
 #include "LTE_Base.h"
 
 
@@ -16,7 +17,11 @@
  *  @param  dp  Debug Serial port pointer.
  */
 LTE_Base::LTE_Base(HardwareSerial* tp, HardwareSerial* dp) {
-    telitPort = tp;
+	#ifdef DEBUG
+	debugPort->write(">> Constructing LTE_Base object ...\r\n");
+    #endif
+
+	telitPort = tp;
     debugPort = dp;
     memset(data, '\0', BASE_BUF_SIZE);
     parsedData = NULL;
@@ -31,14 +36,14 @@ LTE_Base::LTE_Base(HardwareSerial* tp, HardwareSerial* dp) {
  */
 bool LTE_Base::init(uint32_t lte_band) {
     #ifdef DEBUG
-    debugPort->write("Initializing ...\r\n");
+    debugPort->write(">> Initializing LTE_Base ...\r\n");
     #endif
 
     if (!getCommandOK("ATE0"))          // No command echo
         return false;
     if (!getCommandOK("ATV1"))          // Verbose response from modem
         return false;
-    if (!getCommandOK("AT+IPR=115200")) // Baud rate for Serial communication
+    if (!getCommandOK("AT+IPR=115200")) // Baud rate for Serial
         return false;
     if (!getCommandOK("AT+CMEE=2"))     // Verbose error reports
         return false;
@@ -52,10 +57,13 @@ bool LTE_Base::init(uint32_t lte_band) {
      * The command is in this order: AT#BND=GSM,UMTS,LTE
      * 
      * Refer to the Telit AT-command guide to determine the correct values.
-     * For LTE, given LTE Band n, the argument passed in is 2 exp(n - 1). For
-     * example, LTE band 13 would need us to pass in 2^(13-1) = 4096.
+     * For LTE, given LTE Band n, the argument passed in is 2 exp(n - 1).
+	 * For example, LTE band 13 would need us to pass in 2^(13-1) = 4096.
      */
-    char* band = "AT#BND=0,0,8";        // No GSM/UMTS, LTE Band 4
+	long double b = pow(2, lte_band-1);
+
+    char band[20];
+	sprintf(band, "AT#BND=0,0,%d", b);	// No GSM/UMTS, only LTE Band
     if (!getCommandOK(band))
         return false;
 
@@ -71,7 +79,7 @@ bool LTE_Base::sendATCommand(const char* cmd) {
     if ((cmd == NULL) || (cmd[0] == '\0') || (bufferFull)) return false;
 
     #ifdef DEBUG
-    debugPort->write("Sending AT Command: \"");
+    debugPort->write(">> Sending AT Command: \"");
     debugPort->write(cmd);
     debugPort->write("\"\r\n");
     #endif
@@ -92,12 +100,20 @@ bool LTE_Base::sendATCommand(const char* cmd) {
  *  @return bool
  */
 bool LTE_Base::receiveData(uint32_t timeout, uint32_t baudDelay) {
-    if ((timeout == 0) || (baudDelay == 0)) return false;
+    if ((timeout == 0) || (baudDelay == 0)) {
+		#ifdef DEBUG
+		debugPort->write(">> LTE_Base receiveData failed.\r\n");
+		#endif
+		return false;
+	}
 
     // Block while waiting for the start of the message
     uint32_t startTime = millis();
     while (!telitPort->available()) {
         if ((millis() - startTime) > timeout) {
+			#ifdef DEBUG
+			debugPort->write(">> LTE_Base receiveData timed out.\r\n");
+			#endif
             return false;  // Timeout
         }
     }
@@ -114,13 +130,17 @@ bool LTE_Base::receiveData(uint32_t timeout, uint32_t baudDelay) {
     while (!timedOut) {
         if (receivedSize >= BASE_BUF_SIZE) {
             bufferFull = true;
+			#ifdef DEBUG
+			debugPort->write(">> LTE_Base receiveData buffer full.\r\n");
+			#endif
             break;
         }
 
         // Store next byte
         // Ignore initial whitespace
         char c = (char) telitPort->read();
-        if ((receivedSize != 0) || (c != '\0') && (c != '\r') && (c != '\n')) {
+        if ((receivedSize != 0) || (c != '\0') &&
+		    (c != '\r') && (c != '\n')) {
             data[receivedSize] = c;
             receivedSize++;
         }
@@ -140,9 +160,9 @@ bool LTE_Base::receiveData(uint32_t timeout, uint32_t baudDelay) {
     recDataSize = receivedSize;
 
     #ifdef DEBUG
-    debugPort->write("--- Received Data ---\r\n");
+    debugPort->write(">> LTE_Base --- Received Data ---\r\n");
     debugPort->write(data);
-    debugPort->write("--- End Received Data ---\r\n\r\n");
+    debugPort->write(">> LTE_Base --- End Received Data ---\r\n");
     #endif
 
     return true;
@@ -191,13 +211,20 @@ bool LTE_Base::parseFind(const char* stringToFind) {
         return false;
 	
     char* beginning = strstr(data, stringToFind);
-    if (beginning == NULL) return false;
-    parsedData = beginning + strlen(stringToFind);
+    if (beginning == NULL) {
+		#ifdef DEBUG
+		debugPort->write(">> LTE_Base parseFind failed for string \"");
+		debugPort->write(stringToFind);
+		debugPort->write("\".\r\n");
+		#endif
+		return false;
+    }
+	parsedData = beginning + strlen(stringToFind);
     return true;
 }
 
-/** Sends an AT Command, listens for a response, and looks for an "OK" code in
- *  the response data. If an "OK" is received, this function returns true.
+/** Sends an AT Command, listens for a response, and looks for an "OK" code
+ *  in the response data. If a "OK" is received, this function returns true.
  *
  *  @param  command     String containing AT Command.
  *  @return bool        True if OK is received.
@@ -205,8 +232,18 @@ bool LTE_Base::parseFind(const char* stringToFind) {
 bool LTE_Base::getCommandOK(const char* command) {
     if (!sendATCommand(command) || !receiveData(500, 100)) return false;
     if (parseFind("OK\r\n")) {
+		#ifdef DEBUG
+		debugPort->write(">> OK found for command \"");
+		debugPort->write(command);
+		debugPort->write("\"\r\n");
+		#endif
         return true;
     } else {
+		#ifdef DEBUG
+		debugPort->write(">> OK not found for command \"");
+		debugPort->write(command);
+		debugPort->write("\"\r\n");
+		#endif
         return false;
     }
 }
@@ -218,7 +255,7 @@ bool LTE_Base::getCommandOK(const char* command) {
  */
 void LTE_Base::printRegistration() {
     #ifdef DEBUG
-    debugPort->write("Printing registration information ...\r\n");
+    debugPort->write(">> Printing registration information ...\r\n");
     #endif
 
     if (sendATCommand("AT+CGMI") && receiveData() && parseFind("\r\nOK\r\n")) {
@@ -253,9 +290,16 @@ void LTE_Base::printRegistration() {
  *  @return bool    True if modem is connected.
  */
 bool LTE_Base::isConnected() {
-    if (getCommandOK("AT+CGATT?") && parseFind("+CGATT: 1"))
+    if (getCommandOK("AT+CGATT?") && parseFind("+CGATT: 1")) {
+		#ifdef DEBUG
+		debugPort->write(">> GPRS is attached.");
+		#endif
 		return true;
-    return false;
+    }
+	#ifdef DEBUG
+	debugPort->write(">> GPRS is not attached.");
+	#endif
+	return false;
 }
 
 #endif

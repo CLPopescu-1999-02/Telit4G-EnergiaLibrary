@@ -8,6 +8,7 @@
 #define LTE_LTE_BASE_
 
 #include <math.h>
+#include <stdio.h>
 #include "LTE_Base.h"
 
 
@@ -17,11 +18,11 @@
  *  @param  dp  Debug Serial port pointer.
  */
 LTE_Base::LTE_Base(HardwareSerial* tp, HardwareSerial* dp) {
-	#ifdef DEBUG
-	debugPort->write(">> Constructing LTE_Base object ...\r\n");
+    #ifdef DEBUG
+    debugPort->write(">> Constructing LTE_Base object ...\r\n");
     #endif
 
-	telitPort = tp;
+    telitPort = tp;
     debugPort = dp;
     memset(data, '\0', BASE_BUF_SIZE);
     parsedData = NULL;
@@ -60,10 +61,10 @@ bool LTE_Base::init(uint32_t lte_band) {
      * For LTE, given LTE Band n, the argument passed in is 2 exp(n - 1).
 	 * For example, LTE band 13 would need us to pass in 2^(13-1) = 4096.
      */
-	long double b = pow(2, lte_band-1);
+    long double b = pow(2, lte_band-1);
 
     char band[20];
-	sprintf(band, "AT#BND=0,0,%d", b);	// No GSM/UMTS, only LTE Band
+    sprintf(band, "AT#BND=0,0,%d", b);	// No GSM/UMTS, only LTE Band
     if (!getCommandOK(band))
         return false;
 

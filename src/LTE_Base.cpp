@@ -65,9 +65,12 @@ bool LTE_Base::init(uint32_t lte_band) {
 
     char band[20];
     sprintf(band, "AT#BND=0,0,%d", b);	// No GSM/UMTS, only LTE Band
-    if (!getCommandOK(band))
-        return false;
-
+    if (!sendATCommand(band) || !receiveData(2000) || !parseFind("OK")) {
+        #ifdef DEBUG
+        debugPort->write(">> Setting LTE Band failed\r\n");
+        #endif
+    }
+    
     return true;
 }
 

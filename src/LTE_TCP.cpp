@@ -34,8 +34,9 @@ LTE_TCP::LTE_TCP(HardwareSerial* tp, HardwareSerial* dp)
  *  @return bool      True on success.
  */
 bool LTE_TCP::init(uint32_t lte_band, char* apn) {
-    if (!LTE_Base::init(lte_band))
+    if (!LTE_Base::init(lte_band)) {
         return false;
+    }
 
     char cmd[40];
     sprintf(cmd, "AT#SGACT=%d,0", DEFAULT_CID);
@@ -188,8 +189,8 @@ int LTE_TCP::getSocketStatus() {
     if (parseFind(match)) {
         socketStatus = (getParsedData())[0] - '0';
         #ifdef DEBUG
-        debugPort->write(">> Socket status code: ")
-        debugPort->write(x);
+        debugPort->write(">> Socket status code: ");
+        debugPort->write(socketStatus);
         debugPort->write("\r\n");
         #endif
         return socketStatus;

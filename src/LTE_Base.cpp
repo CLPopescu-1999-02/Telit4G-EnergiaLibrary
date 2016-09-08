@@ -46,10 +46,6 @@ bool LTE_Base::init(uint32_t lte_band) {
         return false;
     if (!getCommandOK("AT+IPR=115200")) // Baud rate for Serial
         return false;
-    if (!getCommandOK("AT+CMEE=2"))     // Verbose error reports
-        return false;
-    if (!getCommandOK("AT+CGATT=1"))    // GPRS network attached
-        return false;
 
     /* If you are using a 2G/3G capable device, you would change
      * The arguments here to include your GSM and UMTS bands. The Telit

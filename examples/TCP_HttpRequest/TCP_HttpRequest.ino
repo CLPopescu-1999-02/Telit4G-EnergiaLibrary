@@ -21,11 +21,10 @@ void setup()
 
   // Initialize LTE Http object
   Serial.println("Initializing...");
-  while (!lte.init(4)) {
-    Serial.println("Initialization failed. Retrying ...");
-    delay(1000);
+  if (!lte.init(4)) {
+    Serial.println("Initialization failed");
   }
-  Serial.println("Initialization success!");
+  else Serial.println("Initialization success!");
   Serial.println("UART connection ready.\r\n");
 }
 

@@ -96,10 +96,10 @@ void setup()
 
   // Initialize LTE tcp object
   Serial.println("Initializing...");
-  while (!lte.init(4)) {
-    Serial.println("Initialization failed. Retrying ...");
-    delay(1000);
+  if (!lte.init(4)) {
+    Serial.println("Initialization failed");
   }
+  else Serial.println("Initialization success!");
   Serial.println("Initialized. UART connection ready.\r\n");
 
   last_temp = millis();

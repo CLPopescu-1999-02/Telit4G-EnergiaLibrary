@@ -22,7 +22,7 @@ void setup()
   if (!base.init(4)) {
     Serial.println("Initialization failed");
   }
-  Serial.println("Initialization success!");
+  else Serial.println("Initialization success!");
   
   Serial.println("UART connection ready.\r\n");
 }

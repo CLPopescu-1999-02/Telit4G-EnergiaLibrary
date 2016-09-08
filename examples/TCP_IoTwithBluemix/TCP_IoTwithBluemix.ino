@@ -66,7 +66,7 @@
 
 // COPY YOUR BLUEMIX APP NAME HERE
 // For example, the APP_NAME of myapp.bluemix.net would be "myapp"
-#define APP_NAME "evk4temperaturemovement"
+#define APP_NAME "my"
 
 // Define UART pins between boosterpack and launchpad
 #define LTE_SERIAL Serial1
@@ -94,7 +94,7 @@ void setup()
 
   delay(2000);
 
-  // Initialize LTE Http object
+  // Initialize LTE tcp object
   Serial.println("Initializing...");
   while (!lte.init(4)) {
     Serial.println("Initialization failed. Retrying ...");

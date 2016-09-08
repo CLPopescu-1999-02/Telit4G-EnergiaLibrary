@@ -19,7 +19,7 @@
 //////////////////////////////////////////////////////////////////
  
 // COPY YOUR OPEN WEATHER MAP API KEY AND CITY HERE:
-#define OWM_API_KEY "f2b7da34048eb1f7ca08d685b30ba314"
+#define OWM_API_KEY "somekeyhere"
 #define HOME_CITY "Dallas"
 
 // Define UART pins between boosterpack and launchpad

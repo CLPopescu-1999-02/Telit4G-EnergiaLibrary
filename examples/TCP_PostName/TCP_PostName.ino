@@ -22,9 +22,9 @@
 //////////////////////////////////////////////////////////////////
  
 // COPY YOUR OPEN WEATHER MAP API KEY AND CITY HERE:
-#define URL_RESOURCE "138a3p81"
-#define FIRST_NAME "Wenlong"
-#define LAST_NAME "Xiong"
+#define URL_RESOURCE "someurlresource"
+#define FIRST_NAME "MyFirstName"
+#define LAST_NAME "MyLastName"
 
 // Define UART pins between boosterpack and launchpad
 #define LTE_SERIAL Serial1

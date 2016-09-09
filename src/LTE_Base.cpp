@@ -24,6 +24,9 @@ LTE_Base::LTE_Base(HardwareSerial* tp, HardwareSerial* dp) {
 
     telitPort = tp;
     debugPort = dp;
+    #ifndef DEBUG
+    debugPort = NULL;
+    #endif
     memset(data, '\0', BASE_BUF_SIZE);
     parsedData = NULL;
     bufferFull = false;
